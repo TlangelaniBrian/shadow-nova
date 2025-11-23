@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
+    ports:
+      - '8080:8080'
+    depends_on:
+      - backend
+    networks:
+      - shadow-nova-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../Dockerfile.backend
+    ports:
+      - '3000:3000'
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgres://user:password@db:5432/shadownova?sslmode=disable
+      - UNLEASH_URL=http://unleash:4242/api
+      - UNLEASH_APP_NAME=shadow-nova-backend
+    depends_on:
+      - db
+      - prometheus
+      - loki
+    networks:
+      - shadow-nova-network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=shadownova
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - shadow-nova-network
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - shadow-nova-network
+
+  # Loki for log aggregation
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - shadow-nova-network
+
+  # Promtail for log shipping to Loki
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - shadow-nova-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3001:3000'
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - shadow-nova-network
+
+  # Unleash Database
+  unleash-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: unleash
+      POSTGRES_USER: unleash_user
+      POSTGRES_PASSWORD: unleash_password
+    volumes:
+      - unleash-db-data:/var/lib/postgresql/data
+    networks:
+      - shadow-nova-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unleash_user -d unleash"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Unleash for feature flags (optional)
+  unleash:
+    image: unleashorg/unleash-server:latest
+    ports:
+      - "4242:4242"
+    environment:
+      DATABASE_URL: postgres://unleash_user:unleash_password@unleash-db:5432/unleash
+      DATABASE_SSL: "false"
+      LOG_LEVEL: "warn"
+      INIT_CLIENT_API_TOKENS: "default:development.unleash-insecure-api-token"
+      INIT_FRONTEND_API_TOKENS: "default:development.unleash-insecure-frontend-token"
+    depends_on:
+      unleash-db:
+        condition: service_healthy
+    networks:
+      - shadow-nova-network
+
+networks:
+  shadow-nova-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:
+  unleash-db-data:

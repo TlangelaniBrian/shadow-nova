@@ -16,6 +16,39 @@ type Service interface {
 	CreateUser(ctx context.Context, user *models.User) error
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	InitSchema(ctx context.Context) error
+	
+	// Learning Paths
+	GetLearningPaths(ctx context.Context) ([]models.LearningPath, error)
+	GetLearningPath(ctx context.Context, id string) (*models.LearningPath, error)
+	CreateLearningPath(ctx context.Context, path *models.LearningPath) error
+	CreateModule(ctx context.Context, module *models.Module) error
+	CreateLesson(ctx context.Context, lesson *models.Lesson) error
+	
+	// Seeding
+	SeedLearningPaths(ctx context.Context) error
+
+	// User Progress
+	UpdateUserProgress(ctx context.Context, userID int, req models.UpdateProgressRequest) error
+	GetUserStats(ctx context.Context, userID int) (*models.UserStats, error)
+	GetPathProgress(ctx context.Context, userID int, pathID string) (*models.PathProgress, error)
+
+	// Projects & GitHub
+	GetProjects(ctx context.Context) ([]models.Project, error)
+	CreateProject(ctx context.Context, project *models.Project) error
+	SubmitProject(ctx context.Context, sub *models.ProjectSubmission) error
+	GetUserSubmissions(ctx context.Context, userID int) ([]models.ProjectSubmission, error)
+	SaveGitHubToken(ctx context.Context, integration *models.GitHubIntegration) error
+
+	// FeedSourceEngine & Content
+	CreateContentSource(ctx context.Context, source *models.ContentSource) error
+	GetContentSources(ctx context.Context) ([]models.ContentSource, error)
+	CreateContentItem(ctx context.Context, item *models.ContentItem) error
+	GetUnprocessedItems(ctx context.Context, limit int) ([]models.ContentItem, error)
+	UpdateContentItemAI(ctx context.Context, item *models.ContentItem) error
+	
+	// System Settings
+	GetSystemSetting(ctx context.Context, key string) (string, error)
+	UpdateSystemSetting(ctx context.Context, key, value string) error
 }
 
 type service struct {

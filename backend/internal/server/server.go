@@ -42,7 +42,12 @@ func NewServer() *http.Server {
 	// Initialize Schema
 	ctx := context.Background()
 	if err := NewServer.db.InitSchema(ctx); err != nil {
-		fmt.Printf("Warning: Failed to initialize schema: %v\n", err)
+		fmt.Printf("Failed to initialize schema: %v\n", err)
+	}
+
+	// Seed Learning Paths
+	if err := NewServer.db.SeedLearningPaths(ctx); err != nil {
+		fmt.Printf("Failed to seed learning paths: %v\n", err)
 	}
 
 	// Seed super user

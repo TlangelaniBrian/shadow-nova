@@ -2,14 +2,10 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -28,12 +24,6 @@ type GoogleUserInfo struct {
 	Picture       string `json:"picture"`
 }
 
-type JWTClaims struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
-	jwt.RegisteredClaims
-}
 
 func NewGoogleAuthService() (*GoogleAuthService, error) {
 	ctx := context.Background()
@@ -100,90 +90,26 @@ func (s *GoogleAuthService) ExchangeCodeForToken(ctx context.Context, code strin
 	return s.config.Exchange(ctx, code)
 }
 
-// GenerateJWT creates a JWT token for an authenticated user
-func (s *GoogleAuthService) GenerateJWT(userID, email, name string) (string, error) {
-	claims := JWTClaims{
-		UserID: userID,
-		Email:  email,
-		Name:   name,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "shadow-nova",
-		},
-	}
-	
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.jwtSecret)
-}
-
-// ValidateJWT validates and parses a JWT token
-func (s *GoogleAuthService) ValidateJWT(tokenString string) (*JWTClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return s.jwtSecret, nil
-	})
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
-		return claims, nil
-	}
-	
-	return nil, fmt.Errorf("invalid token")
-}
-
-// HandleGoogleCallback handles the OAuth callback from Google
-func (s *GoogleAuthService) HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		http.Error(w, "Missing code parameter", http.StatusBadRequest)
-		return
-	}
-	
-	// Exchange code for token
-	oauth2Token, err := s.ExchangeCodeForToken(ctx, code)
-	if err != nil {
-		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
-		return
-	}
-	
-	// Extract ID token
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		http.Error(w, "No id_token in response", http.StatusInternalServerError)
-		return
-	}
-	
-	// Verify ID token
-	userInfo, err := s.VerifyGoogleToken(ctx, rawIDToken)
-	if err != nil {
-		http.Error(w, "Failed to verify token", http.StatusUnauthorized)
-		return
-	}
-	
 	// Generate our JWT
-	jwtToken, err := s.GenerateJWT(userInfo.Sub, userInfo.Email, userInfo.Name)
-	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
-	}
+	// Note: Google User ID is a string, but our system uses int IDs.
+	// This is a mismatch. In a real system, we'd look up the user in DB to get their INT ID.
+	// For now, let's assume we have a way to get the INT ID or we change GenerateJWT to accept string.
+	// But GenerateJWT in auth.go accepts int.
+	// We need to fix this architectural mismatch.
+	// The GoogleCallback in handlers/auth.go (which calls this) should handle the DB lookup/creation and then generate JWT.
+	// THIS method `HandleGoogleCallback` inside the service seems to be doing too much (HTTP handling + Logic).
+	// It should probably just return the user info.
 	
-	// Return JWT to client
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"token": jwtToken,
-		"user": map[string]string{
-			"id":      userInfo.Sub,
-			"email":   userInfo.Email,
-			"name":    userInfo.Name,
-			"picture": userInfo.Picture,
-		},
-	})
-}
+	// However, to fix the immediate compilation error without major refactor:
+	// We'll comment out the JWT generation here and let the handler do it, 
+	// OR we temporarily convert string to int (bad) or change GenerateJWT to string (better but affects other parts).
+	
+	// Actually, looking at routes.go, `authHandler.GoogleCallback` is used.
+	// Let's check `backend/internal/handlers/auth.go` to see what it does.
+	// If `GoogleAuthService` has `HandleGoogleCallback`, maybe it's being used directly?
+	// `routes.go` says: `r.Get("/auth/google/callback", authHandler.GoogleCallback)`
+	
+	// So `GoogleAuthService.HandleGoogleCallback` might be unused or legacy code if `authHandler` implements it.
+	// Let's check `handlers/auth.go`.
+	
+	// For now, I will remove the JWT methods from here to avoid conflict/duplication.

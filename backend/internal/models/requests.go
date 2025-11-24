@@ -13,18 +13,13 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
-// Learning path progress update
-type UpdateProgressRequest struct {
-	PathID      string `json:"path_id" validate:"required"`
-	ModuleIndex int    `json:"module_index" validate:"required,gte=0"`
-	Completed   bool   `json:"completed"`
-}
 
 // Project submission request
 type SubmitProjectRequest struct {
-	ProjectID string `json:"project_id" validate:"required"`
-	GithubURL string `json:"github_url" validate:"omitempty,url"`
-	DemoURL   string `json:"demo_url" validate:"omitempty,url"`
+	ProjectID     string `json:"project_id" validate:"required"`
+	GithubRepoURL string `json:"github_repo_url" validate:"required,url"`
+	PRURL         string `json:"pr_url" validate:"omitempty,url"`
+	DemoURL       string `json:"demo_url" validate:"omitempty,url"`
 }
 
 // Generic response structures

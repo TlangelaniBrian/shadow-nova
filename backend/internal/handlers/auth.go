@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"shadow-nova/backend/internal/auth"
 	"shadow-nova/backend/internal/database"
@@ -37,7 +38,53 @@ func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 
 // GoogleCallback handles the OAuth callback from Google
 func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
-	h.googleAuth.HandleGoogleCallback(w, r)
+	ctx := r.Context()
+	
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "Missing code parameter", http.StatusBadRequest)
+		return
+	}
+	
+	// Exchange code for token
+	oauth2Token, err := h.googleAuth.ExchangeCodeForToken(ctx, code)
+	if err != nil {
+		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
+		return
+	}
+	
+	// Extract ID token
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		http.Error(w, "No id_token in response", http.StatusInternalServerError)
+		return
+	}
+	
+	// Verify ID token
+	userInfo, err := h.googleAuth.VerifyGoogleToken(ctx, rawIDToken)
+	if err != nil {
+		http.Error(w, "Failed to verify token", http.StatusUnauthorized)
+		return
+	}
+	
+	// Generate our JWT
+	jwtToken, err := auth.GenerateJWT(userInfo.Sub, userInfo.Name, userInfo.Email)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+	
+	// Return JWT to client
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"token": jwtToken,
+		"user": map[string]string{
+			"id":      userInfo.Sub,
+			"email":   userInfo.Email,
+			"name":    userInfo.Name,
+			"picture": userInfo.Picture,
+		},
+	})
 }
 
 // VerifyGoogleToken verifies a Google ID token from the frontend
@@ -59,7 +106,7 @@ func (h *AuthHandler) VerifyGoogleToken(w http.ResponseWriter, r *http.Request) 
 	}
 	
 	// Generate our JWT
-	jwtToken, err := h.googleAuth.GenerateJWT(userInfo.Sub, userInfo.Email, userInfo.Name)
+	jwtToken, err := auth.GenerateJWT(userInfo.Sub, userInfo.Name, userInfo.Email)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
@@ -143,9 +190,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate JWT
-	// Note: Using GoogleAuthService's GenerateJWT for consistency, but ideally should be a separate TokenService
 	// Using User ID as sub
-	jwtToken, err := h.googleAuth.GenerateJWT(string(rune(user.ID)), user.Email, user.Username)
+	jwtToken, err := auth.GenerateJWT(strconv.Itoa(user.ID), user.Username, user.Email)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return

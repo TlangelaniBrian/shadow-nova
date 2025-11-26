@@ -89,6 +89,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 		}()
 		
 		adminHandler := handlers.NewAdminHandler(s.db)
+		pathsHandler := handlers.NewPathsHandler(s.db)
+		progressHandler := handlers.NewProgressHandler(s.db)
+		projectsHandler := handlers.NewProjectsHandler(s.db)
+		
+		// GitHub handler already initialized on line 52, just removing duplicate
 		
 		// Public routes (no auth required)
 		r.Group(func(r chi.Router) {
@@ -104,11 +109,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 			// Traditional auth (optional)
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.Login)
+			
+			// Public project listing
+			r.Get("/projects", projectsHandler.List)
 		})
-		
-		pathsHandler := handlers.NewPathsHandler(s.db)
-		progressHandler := handlers.NewProgressHandler(s.db)
-		projectsHandler := handlers.NewProjectsHandler(s.db)
 
 		// Protected routes (auth required)
 		r.Group(func(r chi.Router) {
@@ -126,8 +130,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			r.Post("/paths/{id}/modules", pathsHandler.AddModule)
 			r.Post("/lessons", pathsHandler.AddLesson) // keeping it simple, expects module_id in body
 			
-			// Projects Routes
-			r.Get("/projects", projectsHandler.List)
+			// Projects Routes (create/submit are protected)
 			r.Post("/projects", projectsHandler.Create) // Should be admin only
 			r.Post("/submissions", projectsHandler.Submit)
 			

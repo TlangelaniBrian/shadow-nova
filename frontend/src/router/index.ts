@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import HomeView from '../views/HomeView.vue'
@@ -8,6 +8,8 @@ import ProjectsView from '../views/ProjectsView.vue'
 import ResourcesView from '../views/ResourcesView.vue'
 import CommunityView from '../views/CommunityView.vue'
 import GuidesView from '../views/GuidesView.vue'
+import GitHubCallback from '../views/GitHubCallback.vue'
+import ProfileView from '../views/ProfileView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -21,6 +23,18 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: { requiresAuth: false },
+    },
+    {
+      path: '/auth/github/callback',
+      name: 'github-callback',
+      component: GitHubCallback,
+      meta: { requiresAuth: false },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfileView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/dashboard',
@@ -74,13 +88,13 @@ const router = createRouter({
 })
 
 // Navigation guard for authentication
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
   if (typeof window === 'undefined') {
     next()
     return
   }
 
-  const token = window.localStorage.getItem('auth_token')
+  const token = window.localStorage.getItem('token')
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   if (requiresAuth && !token) {

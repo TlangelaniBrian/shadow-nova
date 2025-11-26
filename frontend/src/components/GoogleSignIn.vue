@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 
 const router = useRouter()
 const unleashClient = inject('unleash') as any
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 const isLoading = ref(false)
@@ -68,7 +68,7 @@ const handleGoogleResponse = async (response: any) => {
     }
 
     // Check feature flag for landing page
-    const unleash = window.localStorage.getItem('unleash') // Fallback if inject doesn't work in async
+    // Fallback if inject doesn't work in async
     // Better way: use the global property or inject
     
     // Redirect based on feature flag

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ChevronRight, Trophy, Code, BookOpen } from 'lucide-vue-next'
+import { Trophy, Code, BookOpen } from 'lucide-vue-next'
 
 const activeTab = ref('Activity')
 

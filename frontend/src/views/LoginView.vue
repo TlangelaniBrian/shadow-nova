@@ -7,14 +7,14 @@ const router = useRouter()
 const isLoading = ref(false)
 
 // Check if user is already logged in
-const token = localStorage.getItem('auth_token')
+const token = localStorage.getItem('token')
 if (token) {
   router.push('/dashboard')
 }
 
 const email = ref('')
 const password = ref('')
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 const handleLogin = async () => {
   isLoading.value = true
@@ -36,15 +36,14 @@ const handleLogin = async () => {
 
     const data = await res.json()
     
-    localStorage.setItem('auth_token', data.data.token)
+    localStorage.setItem('token', data.data.token)
     localStorage.setItem('user', JSON.stringify({
       email: data.data.email,
       username: data.data.username
     }))
     
     // Check feature flag (same as Google login)
-    const unleash = localStorage.getItem('unleash')
-    // Note: Ideally we should use the injected unleash client here too
+        // Note: Ideally we should use the injected unleash client here too
     router.push('/dashboard') // Default to dashboard for now
     
   } catch (error) {

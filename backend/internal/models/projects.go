@@ -27,6 +27,7 @@ type GitHubIntegration struct {
 	ID           int       `json:"id"`
 	UserID       int       `json:"user_id"`
 	GithubUserID string    `json:"github_user_id"`
+	Username     string    `json:"username"` // GitHub username
 	AccessToken  string    `json:"-"` // Never expose token in JSON
 	RefreshToken string    `json:"-"`
 	TokenExpiry  time.Time `json:"token_expiry"`

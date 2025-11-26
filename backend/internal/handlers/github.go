@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"shadow-nova/backend/internal/auth"
@@ -44,7 +45,12 @@ func (h *GitHubHandler) Connect(w http.ResponseWriter, r *http.Request) {
 
 	state := "connect"
 	url := h.authService.GetLoginURL(state)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	
+	// Return the URL as JSON instead of redirecting
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"url": url,
+	})
 }
 
 func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +92,7 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{Name: "github_connect_user_id", MaxAge: -1, Path: "/"})
 		
 		fmt.Sscanf(cookie.Value, "%d", &userID)
-		redirectPath = "/settings" // Redirect back to settings page
+		redirectPath = "/profile" // Redirect back to profile page
 	} else {
 		// LOGIN FLOW
 		// Check if user exists by email
@@ -108,10 +114,11 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		redirectPath = fmt.Sprintf("/auth/callback?token=%s", jwtToken)
 	}
 
-	// Save integration
+	// Save integration (this will also update the user's github_username)
 	integration := &models.GitHubIntegration{
 		UserID:       userID,
 		GithubUserID: fmt.Sprintf("%d", ghUser.ID),
+		Username:     ghUser.Login, // Add username to the integration model
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		TokenExpiry:  token.Expiry,

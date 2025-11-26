@@ -40,8 +40,32 @@ func (a *AuthMiddleware) VerifyToken(next http.Handler) http.Handler {
 			return
 		}
 
-		// Add claims to context if needed
-		ctx := context.WithValue(r.Context(), "user", token.Claims)
+		// Extract claims and user_id
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+			return
+		}
+
+		// Get user_id from claims and convert to int
+		userIDStr, ok := claims["user_id"].(string)
+		if !ok {
+			fmt.Printf("[Auth] Failed to extract user_id from claims. Claims: %+v\n", claims)
+			http.Error(w, "Invalid user_id in token", http.StatusUnauthorized)
+			return
+		}
+
+		// Convert string user_id to int
+		userID := 0
+		fmt.Sscanf(userIDStr, "%d", &userID)
+		fmt.Printf("[Auth] Extracted user_id: '%s' -> %d\n", userIDStr, userID)
+		if userID == 0 {
+			http.Error(w, "Invalid user_id format", http.StatusUnauthorized)
+			return
+		}
+
+		// Add user_id to context
+		ctx := context.WithValue(r.Context(), "user_id", userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

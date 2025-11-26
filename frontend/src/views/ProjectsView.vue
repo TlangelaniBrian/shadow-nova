@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import {
   Card,
   CardHeader,
@@ -10,8 +11,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import AppLayout from '@/layouts/AppLayout.vue'
-import { projects } from '@/data/projects'
 import { ArrowRight } from 'lucide-vue-next'
+import { useProjects } from '@/composables/useProjects';
+import { useToast } from '@/composables/useToast';
+
+const { projects, isLoading, error, fetchProjects } = useProjects();
+const toast = useToast();
 
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty.toLowerCase()) {
@@ -25,6 +30,13 @@ const getDifficultyColor = (difficulty: string) => {
       return 'secondary'
   }
 }
+
+onMounted(async () => {
+  const result = await fetchProjects();
+  if (result.error) {
+    toast.showError(result.error);
+  }
+});
 </script>
 
 <template>
@@ -37,7 +49,25 @@ const getDifficultyColor = (difficulty: string) => {
         </p>
       </div>
 
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex items-center justify-center py-20">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+
+      <!-- Error State -->
+      <div v-else-if="error" class="text-center py-20">
+        <div class="mb-4">
+          <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <p class="text-red-500 font-medium mb-2">Failed to load projects</p>
+          <p class="text-sm text-gray-500 mb-4">{{ error.message || 'Unable to connect to the server' }}</p>
+        </div>
+        <Button @click="fetchProjects">Try Again</Button>
+      </div>
+
+      <!-- Projects Grid -->
+      <div v-else-if="projects.length > 0" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         <Card
           v-for="project in projects"
           :key="project.id"
@@ -46,7 +76,7 @@ const getDifficultyColor = (difficulty: string) => {
           <CardHeader>
             <div class="flex justify-between items-start mb-4">
               <div class="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                <component :is="project.icon" class="h-5 w-5" />
+                <span class="text-2xl">{{ project.icon || '📦' }}</span>
               </div>
               <Badge :class="getDifficultyColor(project.difficulty)">
                 {{ project.difficulty }}
@@ -58,7 +88,7 @@ const getDifficultyColor = (difficulty: string) => {
           <CardContent class="flex-1">
             <div class="flex flex-wrap gap-2 mt-2">
               <Badge
-                v-for="tech in project.techStack"
+                v-for="tech in project.tech_stack"
                 :key="tech"
                 variant="secondary"
                 class="text-xs"
@@ -73,6 +103,12 @@ const getDifficultyColor = (difficulty: string) => {
             </Button>
           </CardFooter>
         </Card>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="text-center py-20">
+        <p class="text-gray-500 mb-4">No projects available yet</p>
+        <p class="text-sm text-gray-400">Check back soon for new projects!</p>
       </div>
     </div>
   </AppLayout>

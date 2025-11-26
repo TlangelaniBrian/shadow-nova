@@ -8,7 +8,6 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { learningPaths } from '@/data/learningPaths'
 import { ArrowRight } from 'lucide-vue-next'

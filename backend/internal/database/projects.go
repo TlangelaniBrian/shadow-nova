@@ -99,6 +99,7 @@ func (s *service) GetUserSubmissions(ctx context.Context, userID int) ([]models.
 // --- GitHub Integration ---
 
 func (s *service) SaveGitHubToken(ctx context.Context, integration *models.GitHubIntegration) error {
+	// Save the GitHub integration
 	query := `
 		INSERT INTO github_integrations (user_id, github_user_id, access_token, refresh_token, token_expiry)
 		VALUES ($1, $2, $3, $4, $5)
@@ -110,6 +111,16 @@ func (s *service) SaveGitHubToken(ctx context.Context, integration *models.GitHu
 	err := s.db.QueryRow(ctx, query, integration.UserID, integration.GithubUserID, integration.AccessToken, integration.RefreshToken, integration.TokenExpiry).Scan(&integration.ID, &integration.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to save github token: %w", err)
+	}
+	
+	// Update the user's github_username field
+	if integration.Username != "" {
+		updateUserQuery := `UPDATE users SET github_username = $1 WHERE id = $2`
+		_, err = s.db.Exec(ctx, updateUserQuery, integration.Username, integration.UserID)
+		if err != nil {
+			// Log but don't fail - the integration was saved successfully
+			fmt.Printf("Warning: Failed to update user's github_username: %v\n", err)
+		}
 	}
 
 	return nil

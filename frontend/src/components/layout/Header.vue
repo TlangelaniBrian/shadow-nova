@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Search, Bell, ChevronDown } from 'lucide-vue-next'
+import { Search, Bell, ChevronDown, Menu } from 'lucide-vue-next'
+import { useUIStore } from '@/stores/ui'
+
+const uiStore = useUIStore()
+const { toggleSidebar } = uiStore
 
 const isLive = ref(true)
 const user = ref({
@@ -11,10 +15,19 @@ const user = ref({
 </script>
 
 <template>
-  <header class="h-20 bg-white/50 backdrop-blur-sm fixed top-0 left-64 right-80 z-30 px-8 flex items-center justify-between">
-    <!-- Search -->
-    <div class="flex-1 max-w-md">
-      <div class="relative">
+  <header class="h-20 bg-white/50 backdrop-blur-sm fixed top-0 left-0 md:left-64 right-0 lg:right-80 z-30 px-4 md:px-8 flex items-center justify-between transition-all duration-300 ease-in-out">
+    <!-- Left Section -->
+    <div class="flex items-center gap-4 flex-1 max-w-md">
+      <!-- Mobile Menu Button -->
+      <button 
+        class="md:hidden p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+        @click="toggleSidebar"
+      >
+        <Menu class="w-6 h-6" />
+      </button>
+
+      <!-- Search -->
+      <div class="flex-1 relative hidden sm:block">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input 
           type="text" 

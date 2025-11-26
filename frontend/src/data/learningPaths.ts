@@ -1,4 +1,4 @@
-import { Code2, Database, Server, Cloud } from 'lucide-vue-next'
+import { Code2, Server, Cloud } from 'lucide-vue-next'
 
 export const learningPaths = [
   {

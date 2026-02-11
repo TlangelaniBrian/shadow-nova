@@ -28,16 +28,16 @@ func CSRF() (func(http.Handler) http.Handler, error) {
 
 	secure := os.Getenv("ENV") == "production"
 
-	// Paths exempt from CSRF (authentication endpoints)
+	// Paths exempt from CSRF (authentication endpoints only)
+	// Note: /csrf-token is NOT exempt - it needs CSRF middleware to generate tokens
 	exemptPaths := map[string]bool{
-		"/api/login":                     true,
-		"/api/register":                  true,
-		"/api/auth/google":               true,
-		"/api/auth/google/callback":      true,
-		"/api/auth/google/verify":        true,
-		"/api/auth/github/login":         true,
-		"/api/auth/github/callback":      true,
-		"/api/csrf-token":                true,
+		"/api/v1/login":                     true,
+		"/api/v1/register":                  true,
+		"/api/v1/auth/google":               true,
+		"/api/v1/auth/google/callback":      true,
+		"/api/v1/auth/google/verify":        true,
+		"/api/v1/auth/github/login":         true,
+		"/api/v1/auth/github/callback":      true,
 	}
 
 	csrfProtect := csrf.Protect(

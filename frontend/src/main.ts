@@ -24,8 +24,10 @@ async function initApp() {
 
     // Store in memory (not localStorage - that's XSS vulnerable)
     window.__CSRF_TOKEN__ = csrfToken
+    console.log('✅ CSRF token fetched successfully')
   } catch (error) {
-    console.error('Failed to fetch CSRF token:', error)
+    console.error('❌ Failed to fetch CSRF token:', error)
+    console.log('App will continue but state-changing operations may fail')
   }
 
   // Mount app

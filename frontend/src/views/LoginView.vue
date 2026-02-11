@@ -34,8 +34,10 @@ const handleLogin = async (credentials: { email: string; password: string }) => 
     const data = await res.json()
 
     localStorage.setItem('user', JSON.stringify({
+      id: data.data.id,
       email: data.data.email,
-      username: data.data.username
+      username: data.data.username,
+      role: data.data.role
     }))
 
     router.push('/dashboard')

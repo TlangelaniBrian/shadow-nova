@@ -21,6 +21,9 @@ type Service interface {
 	GetUserByID(ctx context.Context, userID int) (*models.User, error)
 	UpdateUser(ctx context.Context, userID int, user *models.User) error
 	UpdateUserPassword(ctx context.Context, userID int, hashedPassword string) error
+	GetUsers(ctx context.Context, limit, offset int) ([]models.User, error)
+	GetUsersCount(ctx context.Context) (int, error)
+	DeleteUser(ctx context.Context, userID int) error
 	InitSchema(ctx context.Context) error
 
 	// Learning Paths

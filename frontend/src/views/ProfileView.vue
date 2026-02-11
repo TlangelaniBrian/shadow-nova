@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900">Profile Settings</h2>
-        <p class="text-gray-400 mt-1">Manage your account and integrations</p>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Profile Settings</h2>
+        <p class="text-gray-400 dark:text-gray-500 mt-1">Manage your account and integrations</p>
       </div>
     </div>
 
@@ -12,26 +12,26 @@
     <ProfileCard :user="profileData" :courses-completed="12" />
 
     <!-- Profile Edit Section -->
-    <div class="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
-      <h3 class="text-xl font-bold text-gray-900 mb-6">Edit Profile</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+      <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">Edit Profile</h3>
 
       <form @submit.prevent="updateProfile" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</label>
           <input
             v-model="editForm.username"
             type="text"
-            class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="Enter username"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
           <input
             v-model="editForm.email"
             type="email"
-            class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="Enter email"
           />
         </div>
@@ -47,26 +47,26 @@
     </div>
 
     <!-- Password Change Section -->
-    <div class="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
-      <h3 class="text-xl font-bold text-gray-900 mb-6">Change Password</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+      <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">Change Password</h3>
 
       <form @submit.prevent="changePassword" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>
           <input
             v-model="passwordForm.currentPassword"
             type="password"
-            class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="Enter current password"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password</label>
           <input
             v-model="passwordForm.newPassword"
             type="password"
-            class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="Enter new password (min 8 characters)"
           />
         </div>
@@ -95,9 +95,9 @@
     <!-- Account Settings Component -->
     <AccountSettings
       :email-notifications="emailNotifications"
-      :dark-mode="darkMode"
+      :dark-mode="themeStore.isDarkMode"
       @update:email-notifications="emailNotifications = $event"
-      @update:dark-mode="darkMode = $event"
+      @update:dark-mode="themeStore.isDarkMode = $event"
     />
   </div>
 </template>
@@ -106,6 +106,7 @@
 import { ref, watchEffect, onMounted } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 import { useToast } from '@/composables/useToast';
+import { useThemeStore } from '@/stores/theme';
 import client from '@/api/client';
 import { disconnectGitHub } from '@/api/github';
 import { userApi } from '@/api/user';
@@ -115,6 +116,7 @@ import AccountSettings from '@/components/profile/AccountSettings.vue';
 
 const { user } = useAuth();
 const toast = useToast();
+const themeStore = useThemeStore();
 
 const profileData = ref<any>(null);
 const isLoading = ref(false);
@@ -131,7 +133,6 @@ const githubStats = ref({
 });
 
 const emailNotifications = ref(true);
-const darkMode = ref(false);
 
 const editForm = ref({
   username: '',

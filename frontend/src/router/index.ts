@@ -80,6 +80,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import(/* webpackChunkName: "admin-users" */ '../views/admin/UsersView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/login',
     },
@@ -92,6 +98,7 @@ router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, 
   const userStr = localStorage.getItem('user')
   const hasUser = !!userStr
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
 
   // Token validation is now done by backend on each request
   // Frontend only checks if user object exists for UI state
@@ -99,6 +106,13 @@ router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, 
     next('/login')
   } else if (to.path === '/login' && hasUser) {
     next('/dashboard')
+  } else if (requiresAdmin) {
+    const user = JSON.parse(userStr || '{}')
+    if (user.role !== 'admin') {
+      next('/dashboard')
+    } else {
+      next()
+    }
   } else {
     next()
   }

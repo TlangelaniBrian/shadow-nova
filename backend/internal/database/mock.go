@@ -25,6 +25,9 @@ type MockService struct {
 	GetUserByIDFunc             func(ctx context.Context, userID int) (*models.User, error)
 	UpdateUserFunc              func(ctx context.Context, userID int, user *models.User) error
 	UpdateUserPasswordFunc      func(ctx context.Context, userID int, hashedPassword string) error
+	GetUsersFunc                func(ctx context.Context, limit, offset int) ([]models.User, error)
+	GetUsersCountFunc           func(ctx context.Context) (int, error)
+	DeleteUserFunc              func(ctx context.Context, userID int) error
 	GetContentSourcesFunc       func(ctx context.Context, limit, offset int) ([]models.ContentSource, error)
 	GetContentSourcesCountFunc  func(ctx context.Context) (int, error)
 	CreateContentItemFunc       func(ctx context.Context, item *models.ContentItem) error
@@ -128,6 +131,27 @@ func (m *MockService) UpdateUser(ctx context.Context, userID int, user *models.U
 func (m *MockService) UpdateUserPassword(ctx context.Context, userID int, hashedPassword string) error {
 	if m.UpdateUserPasswordFunc != nil {
 		return m.UpdateUserPasswordFunc(ctx, userID, hashedPassword)
+	}
+	return nil
+}
+
+func (m *MockService) GetUsers(ctx context.Context, limit, offset int) ([]models.User, error) {
+	if m.GetUsersFunc != nil {
+		return m.GetUsersFunc(ctx, limit, offset)
+	}
+	return nil, nil
+}
+
+func (m *MockService) GetUsersCount(ctx context.Context) (int, error) {
+	if m.GetUsersCountFunc != nil {
+		return m.GetUsersCountFunc(ctx)
+	}
+	return 0, nil
+}
+
+func (m *MockService) DeleteUser(ctx context.Context, userID int) error {
+	if m.DeleteUserFunc != nil {
+		return m.DeleteUserFunc(ctx, userID)
 	}
 	return nil
 }

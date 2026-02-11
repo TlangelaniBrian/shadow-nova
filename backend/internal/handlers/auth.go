@@ -104,6 +104,7 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 			"email":   userInfo.Email,
 			"name":    userInfo.Name,
 			"picture": userInfo.Picture,
+			"role":    "user",
 		},
 	})
 }
@@ -149,6 +150,7 @@ func (h *AuthHandler) VerifyGoogleToken(w http.ResponseWriter, r *http.Request) 
 			"email":   userInfo.Email,
 			"name":    userInfo.Name,
 			"picture": userInfo.Picture,
+			"role":    "user",
 		},
 	})
 }
@@ -226,8 +228,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	metrics.UserLogins.WithLabelValues("email").Inc()
 
 	httputil.WriteSuccess(w, "Login successful", map[string]string{
+		"id":       strconv.Itoa(user.ID),
 		"username": user.Username,
 		"email":    user.Email,
+		"role":     user.Role,
 	})
 }
 

@@ -41,45 +41,45 @@ const activities = [
 </script>
 
 <template>
-  <aside class="w-80 bg-white h-screen fixed right-0 top-0 border-l border-gray-100 flex flex-col z-40 p-6">
+  <aside class="w-80 bg-white dark:bg-gray-800 h-screen fixed right-0 top-0 border-l border-gray-100 dark:border-gray-700 flex flex-col z-40 p-6">
     <!-- Tabs -->
     <div class="flex items-center gap-8 mb-8">
-      <button 
-        v-for="tab in ['Activity', 'Community']" 
+      <button
+        v-for="tab in ['Activity', 'Community']"
         :key="tab"
         class="text-lg font-medium transition-colors relative pb-2"
-        :class="activeTab === tab ? 'text-gray-900' : 'text-gray-400'"
+        :class="activeTab === tab ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'"
         @click="activeTab = tab"
       >
         {{ tab }}
-        <div 
-          v-if="activeTab === tab" 
-          class="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full"
+        <div
+          v-if="activeTab === tab"
+          class="absolute bottom-0 left-0 w-full h-1 bg-gray-900 dark:bg-gray-100 rounded-full"
         ></div>
       </button>
     </div>
 
     <!-- Activity List -->
     <div class="flex-1 overflow-y-auto space-y-4 pr-2">
-      <div 
-        v-for="item in activities" 
+      <div
+        v-for="item in activities"
         :key="item.id"
-        class="p-4 bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-50 hover:shadow-md transition-shadow cursor-pointer group"
+        class="p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-50 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer group"
       >
         <div class="flex items-start gap-4">
-          <div 
+          <div
             class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             :class="item.color"
           >
             <component :is="item.icon" class="w-5 h-5" />
           </div>
-          
+
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
-              <h4 class="text-sm font-bold text-gray-900">{{ item.title }}</h4>
-              <span class="text-[10px] text-gray-400">{{ item.time }}</span>
+              <h4 class="text-sm font-bold text-gray-900 dark:text-gray-100">{{ item.title }}</h4>
+              <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ item.time }}</span>
             </div>
-            <p class="text-xs text-gray-500 truncate">{{ item.desc }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ item.desc }}</p>
           </div>
         </div>
       </div>

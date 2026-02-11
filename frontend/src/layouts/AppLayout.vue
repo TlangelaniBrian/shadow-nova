@@ -5,14 +5,14 @@ import RightSidebar from '@/components/layout/RightSidebar.vue'
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col md:flex-row">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans flex flex-col md:flex-row">
     <!-- Mobile Header/Nav Trigger could go here or in Header component -->
-    
+
     <Sidebar />
-    
+
     <div class="flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out"
          :class="['md:pl-64', 'lg:pr-80']">
-      
+
       <Header />
 
       <!-- Main Content Area -->

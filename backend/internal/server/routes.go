@@ -240,6 +240,14 @@ func (s *Server) RegisterRoutes() (http.Handler, error) {
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AdminOnly)
 
+				// User management
+				adminUsersHandler := handlers.NewAdminUsersHandler(s.db)
+				r.Get("/admin/users", adminUsersHandler.ListUsers)
+				r.Get("/admin/users/{id}", adminUsersHandler.GetUser)
+				r.Post("/admin/users", adminUsersHandler.CreateUser)
+				r.Put("/admin/users/{id}", adminUsersHandler.UpdateUser)
+				r.Delete("/admin/users/{id}", adminUsersHandler.DeleteUser)
+
 				// Learning Paths CRUD (admin only)
 				r.Put("/paths/{id}", pathsHandler.Update)
 				r.Patch("/paths/{id}", pathsHandler.Update)

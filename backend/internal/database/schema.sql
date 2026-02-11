@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     user_role VARCHAR(20) DEFAULT 'user' NOT NULL CHECK (user_role IN ('user', 'admin')),
     github_username VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL
 );
 
 -- Learning paths table
@@ -160,6 +161,7 @@ CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX idx_project_submissions_user_id ON project_submissions(user_id);
 CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 
 -- Performance indexes for foreign keys and common queries
 CREATE INDEX IF NOT EXISTS idx_modules_path_id ON modules(path_id);

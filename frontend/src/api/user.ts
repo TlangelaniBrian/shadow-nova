@@ -7,6 +7,7 @@ export interface UserProfile {
     name: string;
     picture?: string;
     github_username?: string;
+    role?: string;
 }
 
 export interface UpdateProfileData {

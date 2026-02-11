@@ -6,6 +6,7 @@ export interface User {
     name: string;
     picture?: string;
     github_username?: string;
+    role?: string;
 }
 
 export interface AuthResponse {

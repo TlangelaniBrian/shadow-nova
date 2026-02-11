@@ -74,10 +74,10 @@ const currentPath = ref({
     <!-- Header Section -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Welcome back, {{ user?.name?.split(' ')[0] || 'Developer' }}! 👋
         </h2>
-        <p class="text-gray-400 mt-1">Here's your learning progress today</p>
+        <p class="text-gray-400 dark:text-gray-500 mt-1">Here's your learning progress today</p>
       </div>
     </div>
 
@@ -91,26 +91,26 @@ const currentPath = ref({
       <div
         v-for="stat in stats"
         :key="stat.label"
-        class="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all"
+        class="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all"
       >
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" :class="stat.color">
             {{ stat.icon }}
           </div>
-          <span class="text-green-500 text-sm font-medium bg-green-50 px-2 py-1 rounded-full">{{ stat.trend }}</span>
+          <span class="text-green-500 dark:text-green-400 text-sm font-medium bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">{{ stat.trend }}</span>
         </div>
-        <p class="text-gray-400 text-sm mb-1">{{ stat.label }}</p>
-        <p class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
+        <p class="text-gray-400 dark:text-gray-500 text-sm mb-1">{{ stat.label }}</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stat.value }}</p>
       </div>
     </div>
 
     <!-- Main Content Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Current Learning Path (Styled like Bursa Main Chart) -->
-      <div class="lg:col-span-2 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+      <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-3xl p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
         <div class="flex items-center justify-between mb-6">
-          <h3 class="text-lg font-bold text-gray-900">Current Learning Path</h3>
-          <button class="text-purple-600 text-sm font-medium hover:text-purple-700">View Details</button>
+          <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Current Learning Path</h3>
+          <button class="text-purple-600 dark:text-purple-400 text-sm font-medium hover:text-purple-700 dark:hover:text-purple-300">View Details</button>
         </div>
         
         <div class="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl p-8 text-white relative overflow-hidden">
@@ -152,42 +152,42 @@ const currentPath = ref({
       </div>
 
       <!-- Recommended/Next Steps (Styled like Bursa Side Cards) -->
-      <div class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-        <h3 class="text-lg font-bold text-gray-900 mb-6">Next Up</h3>
-        
+      <div class="bg-white dark:bg-gray-800 rounded-3xl p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-6">Next Up</h3>
+
         <div class="space-y-4">
-          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-purple-200 transition-colors cursor-pointer group">
+          <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700 transition-colors cursor-pointer group">
             <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+              <div class="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform">
                 ⚡
               </div>
               <div>
-                <h5 class="font-bold text-gray-900 text-sm">Go Concurrency</h5>
-                <p class="text-xs text-gray-400">Advanced Module</p>
+                <h5 class="font-bold text-gray-900 dark:text-gray-100 text-sm">Go Concurrency</h5>
+                <p class="text-xs text-gray-400 dark:text-gray-500">Advanced Module</p>
               </div>
             </div>
           </div>
 
-          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-purple-200 transition-colors cursor-pointer group">
+          <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700 transition-colors cursor-pointer group">
             <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+              <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
                 🐳
               </div>
               <div>
-                <h5 class="font-bold text-gray-900 text-sm">Docker Mastery</h5>
-                <p class="text-xs text-gray-400">DevOps Path</p>
+                <h5 class="font-bold text-gray-900 dark:text-gray-100 text-sm">Docker Mastery</h5>
+                <p class="text-xs text-gray-400 dark:text-gray-500">DevOps Path</p>
               </div>
             </div>
           </div>
 
-          <div class="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-purple-200 transition-colors cursor-pointer group">
+          <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700 transition-colors cursor-pointer group">
             <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
+              <div class="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
                 🎨
               </div>
               <div>
-                <h5 class="font-bold text-gray-900 text-sm">UI Design Systems</h5>
-                <p class="text-xs text-gray-400">Frontend Path</p>
+                <h5 class="font-bold text-gray-900 dark:text-gray-100 text-sm">UI Design Systems</h5>
+                <p class="text-xs text-gray-400 dark:text-gray-500">Frontend Path</p>
               </div>
             </div>
           </div>

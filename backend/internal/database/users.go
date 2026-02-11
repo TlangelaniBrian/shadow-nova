@@ -120,9 +120,9 @@ func (s *service) GetUserByID(ctx context.Context, userID int) (*models.User, er
 // UpdateUser updates user profile information
 func (s *service) UpdateUser(ctx context.Context, userID int, user *models.User) error {
 	query := `UPDATE users
-              SET username = $1, email = $2, updated_at = CURRENT_TIMESTAMP
-              WHERE id = $3`
-	result, err := s.db.Exec(ctx, query, user.Username, user.Email, userID)
+              SET username = $1, email = $2, user_role = $3, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $4`
+	result, err := s.db.Exec(ctx, query, user.Username, user.Email, user.Role, userID)
 	if err != nil {
 		return errors.DatabaseError(err, "failed to update user")
 	}
@@ -150,5 +150,60 @@ func (s *service) UpdateUserPassword(ctx context.Context, userID int, hashedPass
 		return errors.NotFound(fmt.Sprintf("user with ID %d not found", userID))
 	}
 
+	return nil
+}
+
+// GetUsers retrieves all users with pagination (admin only)
+func (s *service) GetUsers(ctx context.Context, limit, offset int) ([]models.User, error) {
+	query := `SELECT id, email, username, user_role, github_username, created_at, updated_at
+              FROM users
+              WHERE deleted_at IS NULL
+              ORDER BY created_at DESC
+              LIMIT $1 OFFSET $2`
+
+	rows, err := s.db.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, errors.DatabaseError(err, "failed to get users")
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		err := rows.Scan(&u.ID, &u.Email, &u.Username, &u.Role, &u.GitHubUsername, &u.CreatedAt, &u.UpdatedAt)
+		if err != nil {
+			return nil, errors.DatabaseError(err, "failed to scan user")
+		}
+		users = append(users, u)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, errors.DatabaseError(err, "error iterating users")
+	}
+
+	return users, nil
+}
+
+// GetUsersCount returns the total count of non-deleted users
+func (s *service) GetUsersCount(ctx context.Context) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`
+	err := s.db.QueryRow(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, errors.DatabaseError(err, "failed to count users")
+	}
+	return count, nil
+}
+
+// DeleteUser soft deletes a user by setting deleted_at
+func (s *service) DeleteUser(ctx context.Context, userID int) error {
+	query := `UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`
+	result, err := s.db.Exec(ctx, query, userID)
+	if err != nil {
+		return errors.DatabaseError(err, "failed to delete user")
+	}
+	if result.RowsAffected() == 0 {
+		return errors.NotFound("user not found or already deleted")
+	}
 	return nil
 }

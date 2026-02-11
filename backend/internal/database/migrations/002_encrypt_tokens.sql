@@ -1,0 +1,16 @@
+-- Migration to encrypt existing GitHub tokens
+-- This migration should be run using the Go migration tool (migrate-tokens)
+-- which reads existing tokens, encrypts them, and updates the database.
+--
+-- WARNING: Backup database before running this migration!
+--
+-- The migration tool will:
+-- 1. Read all existing github_integrations
+-- 2. Decrypt if already encrypted (idempotent)
+-- 3. Encrypt using the new ENCRYPTION_KEY
+-- 4. Update the records in place
+--
+-- To run: go run backend/cmd/migrate-tokens/main.go
+--
+-- No SQL changes are needed as the schema remains the same.
+-- The column type (VARCHAR(255)) is sufficient for encrypted tokens.

@@ -6,14 +6,17 @@ const client = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    withCredentials: true, // Send cookies with requests
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add CSRF token (cookies are sent automatically with withCredentials: true)
 client.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        // Add CSRF token to state-changing requests
+        const csrfToken = window.__CSRF_TOKEN__;
+        const method = config.method?.toLowerCase();
+        if (csrfToken && method && ['post', 'put', 'patch', 'delete'].includes(method)) {
+            config.headers['X-CSRF-Token'] = csrfToken;
         }
         return config;
     },
@@ -22,7 +25,7 @@ client.interceptors.request.use(
     }
 );
 
-// Response interceptor to unwrap backend { message, data } envelope and handle 401s
+// Response interceptor to unwrap backend { message, data } envelope and handle 401s and CSRF errors
 client.interceptors.response.use(
     (response: AxiosResponse) => {
         if (response.data && typeof response.data === 'object' && 'data' in response.data) {
@@ -30,12 +33,34 @@ client.interceptors.response.use(
         }
         return response;
     },
-    (error: AxiosError) => {
+    async (error: AxiosError) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem('token');
+            // Clear user data (token is in HttpOnly cookie, cleared by backend)
             localStorage.removeItem('user');
             router.push('/login');
         }
+
+        // Handle CSRF token errors
+        if (error.response?.status === 403) {
+            const errorData = error.response.data as { error?: string };
+            if (errorData?.error?.includes('CSRF')) {
+                try {
+                    // Token expired or invalid - refetch
+                    const response = await client.get('/csrf-token');
+                    window.__CSRF_TOKEN__ = response.data.csrf_token;
+
+                    // Retry original request
+                    const originalRequest = error.config;
+                    if (originalRequest) {
+                        originalRequest.headers['X-CSRF-Token'] = window.__CSRF_TOKEN__;
+                        return client(originalRequest);
+                    }
+                } catch (retryError) {
+                    return Promise.reject(retryError);
+                }
+            }
+        }
+
         return Promise.reject(error);
     }
 );

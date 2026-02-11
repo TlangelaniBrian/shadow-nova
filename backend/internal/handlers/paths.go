@@ -32,7 +32,7 @@ func (h *PathsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	path, err := h.db.GetLearningPath(r.Context(), id)
 	if err != nil {
-		httputil.WriteError(w, http.StatusNotFound, "Learning path not found")
+		httputil.HandleError(w, err)
 		return
 	}
 

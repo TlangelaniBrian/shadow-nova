@@ -35,4 +35,16 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-ui': ['radix-vue', 'lucide-vue-next'],
+          'vendor-utils': ['axios', 'jwt-decode'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 600
+  }
 })

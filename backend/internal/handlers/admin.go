@@ -29,7 +29,7 @@ func (h *AdminHandler) UpdateCollectorFrequency(w http.ResponseWriter, r *http.R
 
 	value := strconv.Itoa(req.RunsPerDay)
 	if err := h.db.UpdateSystemSetting(r.Context(), "collector_runs_per_day", value); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Failed to update setting")
+		httputil.HandleError(w, err)
 		return
 	}
 

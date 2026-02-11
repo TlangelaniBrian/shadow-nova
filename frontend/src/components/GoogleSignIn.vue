@@ -50,6 +50,7 @@ const handleGoogleResponse = async (response: any) => {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Send cookies with request
       body: JSON.stringify({
         id_token: response.credential,
       }),
@@ -61,20 +62,12 @@ const handleGoogleResponse = async (response: any) => {
 
     const data = await res.json()
 
-    // Store JWT token and user info
+    // Store user info (token is in HttpOnly cookie, managed by browser)
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('auth_token', data.token)
       window.localStorage.setItem('user', JSON.stringify(data.user))
     }
 
-    // Check feature flag for landing page
-    // Fallback if inject doesn't work in async
-    // Better way: use the global property or inject
-    
     // Redirect based on feature flag
-    // We need to access the unleash instance. Since we can't easily inject inside the async function callback context if not setup,
-    // let's try to get it from the component setup.
-    
     if (unleashClient && unleashClient.isEnabled('enable-landing')) {
       router.push('/home')
     } else {

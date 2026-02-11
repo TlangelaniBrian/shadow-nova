@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     username VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    user_role VARCHAR(20) DEFAULT 'user' NOT NULL CHECK (user_role IN ('user', 'admin')),
+    github_username VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -141,8 +143,30 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Token blacklist for revoked JWTs
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    jti VARCHAR(36) PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMP NOT NULL,
+    blacklisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reason VARCHAR(100)
+);
+
+CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
+CREATE INDEX IF NOT EXISTS idx_token_blacklist_user ON token_blacklist(user_id);
+
 -- Indexes for performance
 CREATE INDEX idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX idx_project_submissions_user_id ON project_submissions(user_id);
 CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- Performance indexes for foreign keys and common queries
+CREATE INDEX IF NOT EXISTS idx_modules_path_id ON modules(path_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_module_id ON lessons(module_id);
+CREATE INDEX IF NOT EXISTS idx_user_progress_user_completed ON user_progress(user_id, completed);
+CREATE INDEX IF NOT EXISTS idx_content_items_processed ON content_items(processed_by_ai) WHERE processed_by_ai = FALSE;
+CREATE INDEX IF NOT EXISTS idx_content_items_source_id ON content_items(source_id);
+CREATE INDEX IF NOT EXISTS idx_project_submissions_project_id ON project_submissions(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_submissions_status ON project_submissions(status, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_github_integrations_github_user_id ON github_integrations(github_user_id);

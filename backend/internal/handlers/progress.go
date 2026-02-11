@@ -33,7 +33,7 @@ func (h *ProgressHandler) UpdateProgress(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.db.UpdateUserProgress(r.Context(), userID, req); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Failed to update progress")
+		httputil.HandleError(w, err)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *ProgressHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := h.db.GetUserStats(r.Context(), userID)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch user stats")
+		httputil.HandleError(w, err)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *ProgressHandler) GetPathProgress(w http.ResponseWriter, r *http.Request
 
 	progress, err := h.db.GetPathProgress(r.Context(), userID, pathID)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch path progress")
+		httputil.HandleError(w, err)
 		return
 	}
 

@@ -2,17 +2,21 @@ package database
 
 import (
 	"context"
+	"time"
+
 	"shadow-nova/backend/internal/models"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type MockService struct {
 	GetProjectsFunc        func(ctx context.Context) ([]models.Project, error)
 	CreateProjectFunc      func(ctx context.Context, project *models.Project) error
 	SubmitProjectFunc      func(ctx context.Context, sub *models.ProjectSubmission) error
-	GetUserSubmissionsFunc func(ctx context.Context, userID int) ([]models.ProjectSubmission, error)
-	SaveGitHubTokenFunc    func(ctx context.Context, integration *models.GitHubIntegration) error
-	
-	// Add other fields as needed for other tests
+	GetUserSubmissionsFunc  func(ctx context.Context, userID int) ([]models.ProjectSubmission, error)
+	SaveGitHubTokenFunc     func(ctx context.Context, integration *models.GitHubIntegration) error
+	GetGitHubIntegrationFunc func(ctx context.Context, userID int) (*models.GitHubIntegration, error)
+
 	// Add other fields as needed for other tests
 	GetUserByEmailFunc      func(ctx context.Context, email string) (*models.User, error)
 	GetContentSourcesFunc   func(ctx context.Context) ([]models.ContentSource, error)
@@ -21,6 +25,11 @@ type MockService struct {
 	UpdateContentItemAIFunc func(ctx context.Context, item *models.ContentItem) error
 	GetSystemSettingFunc    func(ctx context.Context, key string) (string, error)
 	UpdateSystemSettingFunc func(ctx context.Context, key, value string) error
+
+	// Ownership validation
+	UserHasAccessToPathFunc func(ctx context.Context, userID int, pathID string) (bool, error)
+	UserOwnsSubmissionFunc  func(ctx context.Context, userID int, submissionID int) (bool, error)
+	UserOwnsProgressFunc    func(ctx context.Context, userID int, progressID int) (bool, error)
 }
 
 func (m *MockService) GetProjects(ctx context.Context) ([]models.Project, error) {
@@ -56,6 +65,13 @@ func (m *MockService) SaveGitHubToken(ctx context.Context, integration *models.G
 		return m.SaveGitHubTokenFunc(ctx, integration)
 	}
 	return nil
+}
+
+func (m *MockService) GetGitHubIntegration(ctx context.Context, userID int) (*models.GitHubIntegration, error) {
+	if m.GetGitHubIntegrationFunc != nil {
+		return m.GetGitHubIntegrationFunc(ctx, userID)
+	}
+	return nil, nil
 }
 
 func (m *MockService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
@@ -121,4 +137,65 @@ func (m *MockService) UpdateSystemSetting(ctx context.Context, key, value string
 		return m.UpdateSystemSettingFunc(ctx, key, value)
 	}
 	return nil
+}
+
+func (m *MockService) UserHasAccessToPath(ctx context.Context, userID int, pathID string) (bool, error) {
+	if m.UserHasAccessToPathFunc != nil {
+		return m.UserHasAccessToPathFunc(ctx, userID, pathID)
+	}
+	return true, nil
+}
+
+func (m *MockService) UserOwnsSubmission(ctx context.Context, userID int, submissionID int) (bool, error) {
+	if m.UserOwnsSubmissionFunc != nil {
+		return m.UserOwnsSubmissionFunc(ctx, userID, submissionID)
+	}
+	return true, nil
+}
+
+func (m *MockService) UserOwnsProgress(ctx context.Context, userID int, progressID int) (bool, error) {
+	if m.UserOwnsProgressFunc != nil {
+		return m.UserOwnsProgressFunc(ctx, userID, progressID)
+	}
+	return true, nil
+}
+
+// Token Blacklist stubs
+func (m *MockService) BlacklistToken(ctx context.Context, jti string, userID int, expiresAt time.Time, reason string) error {
+	return nil
+}
+
+func (m *MockService) IsTokenBlacklisted(ctx context.Context, jti string) (bool, error) {
+	return false, nil
+}
+
+func (m *MockService) BlacklistAllUserTokens(ctx context.Context, userID int, reason string) error {
+	return nil
+}
+
+func (m *MockService) DeleteExpiredBlacklistedTokens(ctx context.Context) (int64, error) {
+	return 0, nil
+}
+
+// Admin stubs (if needed)
+func (m *MockService) GetSubmission(ctx context.Context, submissionID int) (*models.ProjectSubmission, error) {
+	return nil, nil
+}
+
+func (m *MockService) UpdateSubmission(ctx context.Context, submissionID int, status, feedback string) error {
+	return nil
+}
+
+// Transaction support stubs
+func (m *MockService) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return nil, nil
+}
+
+func (m *MockService) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
+	return fn(nil)
+}
+
+// Metrics stub
+func (m *MockService) StartMetricsCollection(ctx context.Context) {
+	// No-op for mock
 }

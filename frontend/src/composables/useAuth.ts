@@ -7,14 +7,13 @@ import { useToast } from '@/composables/useToast';
 
 interface UseAuthReturn {
     user: Ref<User | null>;
-    token: Ref<string | null>;
     isAuthenticated: Ref<boolean>;
     isLoading: Ref<boolean>;
     error: Ref<AppError | null>;
     login: (googleToken: string) => Promise<Result<AuthResponse>>;
     handleGoogleCallback: (code: string) => Promise<Result<AuthResponse>>;
     linkGitHub: (code: string) => Promise<Result<void>>;
-    logout: () => void;
+    logout: () => Promise<void>;
 }
 
 export function useAuth(): UseAuthReturn {
@@ -29,7 +28,7 @@ export function useAuth(): UseAuthReturn {
 
         try {
             const response = await authApi.loginWithGoogle(googleToken);
-            store.setSession(response.data.token, response.data.user);
+            store.setSession(response.data.user);
             isLoading.value = false;
             toast.success('Welcome back!', `Logged in as ${response.data.user.name}`);
             return success(response.data);
@@ -48,7 +47,7 @@ export function useAuth(): UseAuthReturn {
 
         try {
             const response = await authApi.handleGoogleCallback(code);
-            store.setSession(response.data.token, response.data.user);
+            store.setSession(response.data.user);
             isLoading.value = false;
             toast.success('Welcome!', 'Successfully logged in with Google');
             return success(response.data);
@@ -79,15 +78,14 @@ export function useAuth(): UseAuthReturn {
         }
     };
 
-    const logout = () => {
-        store.logout();
+    const logout = async () => {
+        await store.logout();
         error.value = null;
         toast.info('Logged out', 'You have been successfully logged out');
     };
 
     return {
         user: computed(() => store.user),
-        token: computed(() => store.token),
         isAuthenticated: computed(() => store.isAuthenticated),
         isLoading,
         error,

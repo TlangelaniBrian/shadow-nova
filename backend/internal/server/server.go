@@ -16,27 +16,28 @@ import (
 )
 
 type Server struct {
-	port  string
-	db    database.Service
-	flags flags.Service
+	port            string
+	db              database.Service
+	flags           flags.Service
+	collectorCtx    context.Context
+	collectorCancel context.CancelFunc
 }
 
-func NewServer() *http.Server {
+func NewServer(db database.Service, flagsService flags.Service) (*http.Server, *Server, error) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3000"
 	}
 
-	// Initialize Unleash
-	flagsService, err := flags.New()
-	if err != nil {
-		fmt.Printf("Warning: Failed to initialize Unleash: %v\n", err)
-	}
+	// Create context for collector goroutine
+	collectorCtx, collectorCancel := context.WithCancel(context.Background())
 
 	NewServer := &Server{
-		port:  port,
-		db:    database.New(),
-		flags: flagsService,
+		port:            port,
+		db:              db,
+		flags:           flagsService,
+		collectorCtx:    collectorCtx,
+		collectorCancel: collectorCancel,
 	}
 
 	// Initialize Schema
@@ -67,6 +68,7 @@ func NewServer() *http.Server {
 					Email:        email,
 					Username:     "SuperAdmin",
 					PasswordHash: string(hashedPassword),
+					Role:         "admin",
 				}
 				if err := NewServer.db.CreateUser(ctx, user); err != nil {
 					fmt.Printf("Failed to seed super user: %v\n", err)
@@ -77,16 +79,26 @@ func NewServer() *http.Server {
 		}()
 	}
 
+	// Start database metrics collection
+	NewServer.db.StartMetricsCollection(collectorCtx)
+	fmt.Println("Database metrics collection started")
+
+	// Register routes
+	handler, err := NewServer.RegisterRoutes()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to register routes: %w", err)
+	}
+
 	// Declare Server config
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", NewServer.port),
-		Handler:      NewServer.RegisterRoutes(),
+		Handler:      handler,
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	return server
+	return server, NewServer, nil
 }
 
 func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
@@ -95,4 +107,28 @@ func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, s.db.Health())
+}
+
+// Shutdown gracefully shuts down the server, stopping background tasks and closing connections
+func (s *Server) Shutdown(ctx context.Context) error {
+	fmt.Println("Initiating graceful shutdown...")
+
+	// Cancel collector goroutine
+	if s.collectorCancel != nil {
+		fmt.Println("Stopping collector goroutine...")
+		s.collectorCancel()
+	}
+
+	// Close database connections
+	fmt.Println("Closing database connections...")
+	s.db.Close()
+
+	// Close flags service if it has cleanup
+	if s.flags != nil {
+		fmt.Println("Closing flags service...")
+		s.flags.Close()
+	}
+
+	fmt.Println("Graceful shutdown complete")
+	return nil
 }

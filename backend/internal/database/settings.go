@@ -3,17 +3,24 @@ package database
 import (
 	"context"
 	"fmt"
+
+	"shadow-nova/backend/internal/errors"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func (s *service) GetSystemSetting(ctx context.Context, key string) (string, error) {
 	query := `SELECT value FROM system_settings WHERE key = $1`
-	
+
 	var value string
 	err := s.db.QueryRow(ctx, query, key).Scan(&value)
 	if err != nil {
-		return "", fmt.Errorf("failed to get setting %s: %w", key, err)
+		if err == pgx.ErrNoRows {
+			return "", errors.NotFound(fmt.Sprintf("system setting %s not found", key))
+		}
+		return "", errors.DatabaseError(err, fmt.Sprintf("failed to get setting %s", key))
 	}
-	
+
 	return value, nil
 }
 

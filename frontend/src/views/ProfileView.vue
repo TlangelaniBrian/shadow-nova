@@ -184,12 +184,7 @@ const linkGitHub = async () => {
   
   isConnecting.value = true;
   console.log('[GitHub] Starting connection...');
-  
-  // Debug: Check if token exists
-  const token = localStorage.getItem('token');
-  console.log('[GitHub] Token exists:', !!token);
-  console.log('[GitHub] Token value:', token ? `${token.substring(0, 20)}...` : 'null');
-  
+
   try {
     console.log('[GitHub] Calling /auth/github/connect...');
     const response = await client.get('/auth/github/connect');

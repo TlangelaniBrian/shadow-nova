@@ -3,8 +3,12 @@ package database
 import (
 	"context"
 	"fmt"
-	"shadow-nova/backend/internal/models"
 	"time"
+
+	"shadow-nova/backend/internal/errors"
+	"shadow-nova/backend/internal/models"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func (s *service) UpdateUserProgress(ctx context.Context, userID int, req models.UpdateProgressRequest) error {
@@ -103,4 +107,19 @@ func (s *service) GetPathProgress(ctx context.Context, userID int, pathID string
 		CompletedLessons: completedLessons,
 		Percentage:       percentage,
 	}, nil
+}
+
+// UserOwnsProgress checks if a user owns a specific progress record.
+// This prevents IDOR vulnerabilities by ensuring users can only access their own progress.
+func (s *service) UserOwnsProgress(ctx context.Context, userID int, progressID int) (bool, error) {
+	query := `SELECT user_id FROM user_progress WHERE id = $1`
+	var ownerID int
+	err := s.db.QueryRow(ctx, query, progressID).Scan(&ownerID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, errors.NotFound(fmt.Sprintf("progress %d not found", progressID))
+		}
+		return false, errors.DatabaseError(err, "failed to get progress owner")
+	}
+	return ownerID == userID, nil
 }

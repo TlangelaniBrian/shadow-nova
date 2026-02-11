@@ -9,7 +9,6 @@ export interface User {
 }
 
 export interface AuthResponse {
-    token: string;
     user: User;
 }
 
@@ -24,5 +23,9 @@ export const authApi = {
 
     linkGitHub(code: string) {
         return client.get(`/auth/github/callback?code=${code}`);
+    },
+
+    logout() {
+        return client.post('/auth/logout');
     },
 };

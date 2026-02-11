@@ -7,8 +7,8 @@ const router = useRouter()
 const isLoading = ref(false)
 
 // Check if user is already logged in
-const token = localStorage.getItem('token')
-if (token) {
+const user = localStorage.getItem('user')
+if (user) {
   router.push('/dashboard')
 }
 
@@ -24,6 +24,7 @@ const handleLogin = async () => {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Send cookies with request
       body: JSON.stringify({
         email: email.value,
         password: password.value,
@@ -35,15 +36,15 @@ const handleLogin = async () => {
     }
 
     const data = await res.json()
-    
-    localStorage.setItem('token', data.data.token)
+
+    // Store user info (token is in HttpOnly cookie)
     localStorage.setItem('user', JSON.stringify({
       email: data.data.email,
       username: data.data.username
     }))
-    
+
     // Check feature flag (same as Google login)
-        // Note: Ideally we should use the injected unleash client here too
+    // Note: Ideally we should use the injected unleash client here too
     router.push('/dashboard') // Default to dashboard for now
     
   } catch (error) {

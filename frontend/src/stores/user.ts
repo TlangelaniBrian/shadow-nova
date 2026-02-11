@@ -4,13 +4,12 @@ import { authApi, type User } from '@/api/auth';
 
 export const useUserStore = defineStore('user', () => {
   const user = ref<User | null>(null);
-  const token = ref<string | null>(localStorage.getItem('token'));
-  const isAuthenticated = ref(!!token.value);
+  const isAuthenticated = ref(false);
 
   async function loginWithGoogle(googleToken: string) {
     try {
       const response = await authApi.loginWithGoogle(googleToken);
-      setSession(response.data.token, response.data.user);
+      setSession(response.data.user);
     } catch (error) {
       throw error;
     }
@@ -19,7 +18,7 @@ export const useUserStore = defineStore('user', () => {
   async function handleGoogleCallback(code: string) {
     try {
       const response = await authApi.handleGoogleCallback(code);
-      setSession(response.data.token, response.data.user);
+      setSession(response.data.user);
     } catch (error) {
       throw error;
     }
@@ -34,32 +33,36 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function setSession(newToken: string, newUser: User) {
-    token.value = newToken;
+  function setSession(newUser: User) {
     user.value = newUser;
     isAuthenticated.value = true;
-    localStorage.setItem('token', newToken);
-    // Store user info if needed, or fetch it on app load
+    // Store user info for UI state (token is in HttpOnly cookie)
     localStorage.setItem('user', JSON.stringify(newUser));
   }
 
-  function logout() {
-    token.value = null;
-    user.value = null;
-    isAuthenticated.value = false;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  async function logout() {
+    try {
+      // Call logout API to clear the cookie
+      await authApi.logout();
+    } catch (error) {
+      // Continue with local cleanup even if API call fails
+      console.error('Logout API call failed:', error);
+    } finally {
+      user.value = null;
+      isAuthenticated.value = false;
+      localStorage.removeItem('user');
+    }
   }
 
   // Initialize from local storage
   const storedUser = localStorage.getItem('user');
   if (storedUser) {
     user.value = JSON.parse(storedUser);
+    isAuthenticated.value = true;
   }
 
   return {
     user,
-    token,
     isAuthenticated,
     loginWithGoogle,
     handleGoogleCallback,

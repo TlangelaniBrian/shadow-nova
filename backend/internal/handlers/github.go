@@ -13,6 +13,12 @@ import (
 	"shadow-nova/backend/internal/models"
 )
 
+// Helper function to determine if cookies should be secure (HTTPS only)
+func isSecureCookieGitHub() bool {
+	// Allow insecure cookies in development (when ENV=development)
+	return os.Getenv("ENV") != "development"
+}
+
 type GitHubHandler struct {
 	authService *auth.GitHubAuthService
 	db          database.Service
@@ -110,17 +116,28 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	} else {
 		user, err := h.db.GetUserByEmail(r.Context(), ghUser.Email)
 		if err != nil {
-			httputil.WriteError(w, http.StatusNotFound, "User not found. Please register first.")
+			httputil.HandleError(w, err)
 			return
 		}
 		userID = user.ID
 
-		jwtToken, err := auth.GenerateJWT(strconv.Itoa(user.ID), user.Username, user.Email)
+		jwtToken, err := auth.GenerateJWT(strconv.Itoa(user.ID), user.Username, user.Email, user.Role)
 		if err != nil {
 			httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate token")
 			return
 		}
-		redirectPath = fmt.Sprintf("/auth/callback?token=%s", jwtToken)
+
+		// Set HttpOnly cookie instead of passing token in URL
+		http.SetCookie(w, &http.Cookie{
+			Name:     "auth_token",
+			Value:    jwtToken,
+			HttpOnly: true,
+			Secure:   isSecureCookieGitHub(),
+			SameSite: http.SameSiteStrictMode,
+			Path:     "/",
+			MaxAge:   86400, // 24 hours
+		})
+		redirectPath = "/dashboard"
 	}
 
 	integration := &models.GitHubIntegration{
@@ -133,7 +150,7 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.SaveGitHubToken(r.Context(), integration); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "Failed to save integration")
+		httputil.HandleError(w, err)
 		return
 	}
 

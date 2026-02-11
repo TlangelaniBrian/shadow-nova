@@ -7,6 +7,9 @@ import (
 	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type ProjectsHandler struct {
@@ -77,4 +80,65 @@ func (h *ProjectsHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteCreated(w, "Project submitted successfully", submission)
+}
+
+func (h *ProjectsHandler) GetSubmission(w http.ResponseWriter, r *http.Request) {
+	submissionIDStr := chi.URLParam(r, "id")
+	submissionID, err := strconv.Atoi(submissionIDStr)
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid submission ID")
+		return
+	}
+
+	submission, err := h.db.GetSubmission(r.Context(), submissionID)
+	if err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	httputil.WriteSuccess(w, "Submission retrieved successfully", submission)
+}
+
+func (h *ProjectsHandler) UpdateSubmission(w http.ResponseWriter, r *http.Request) {
+	submissionIDStr := chi.URLParam(r, "id")
+	submissionID, err := strconv.Atoi(submissionIDStr)
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid submission ID")
+		return
+	}
+
+	var req struct {
+		Status   string `json:"status" validate:"omitempty,oneof=pending approved rejected"`
+		Feedback string `json:"feedback"`
+	}
+
+	if err := validator.ValidateRequest(r, &req); err != nil {
+		validator.WriteValidationError(w, err)
+		return
+	}
+
+	// Get current submission to check status
+	submission, err := h.db.GetSubmission(r.Context(), submissionID)
+	if err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	// Use existing values if not provided
+	status := req.Status
+	if status == "" {
+		status = submission.Status
+	}
+
+	feedback := req.Feedback
+	if feedback == "" {
+		feedback = submission.Feedback
+	}
+
+	if err := h.db.UpdateSubmission(r.Context(), submissionID, status, feedback); err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	httputil.WriteSuccess(w, "Submission updated successfully", nil)
 }

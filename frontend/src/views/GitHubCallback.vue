@@ -23,21 +23,20 @@ const errorMessage = ref('');
 
 onMounted(async () => {
   const code = route.query.code as string;
-  
+
   if (!code) {
     errorMessage.value = 'No code provided';
-    setTimeout(() => router.push('/profile'), 2000);
+    await new Promise(r => setTimeout(r, 1500));
+    router.push('/profile');
     return;
   }
 
   const result = await linkGitHub(code);
-  
+
   if (result.error) {
     errorMessage.value = getUserMessage(result.error);
-    setTimeout(() => router.push('/profile'), 3000);
-  } else {
-    // Success - redirect to profile
-    setTimeout(() => router.push('/profile'), 1000);
+    await new Promise(r => setTimeout(r, 2000));
   }
+  router.push('/profile');
 });
 </script>

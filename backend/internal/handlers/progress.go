@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"shadow-nova/backend/internal/database"
+	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
 
@@ -19,7 +20,11 @@ func NewProgressHandler(db database.Service) *ProgressHandler {
 }
 
 func (h *ProgressHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int) // Assuming auth middleware sets this
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
 
 	var req models.UpdateProgressRequest
 	if err := validator.ValidateRequest(r, &req); err != nil {
@@ -28,45 +33,42 @@ func (h *ProgressHandler) UpdateProgress(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.db.UpdateUserProgress(r.Context(), userID, req); err != nil {
-		http.Error(w, "Failed to update progress", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to update progress")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Progress updated successfully",
-	})
+	httputil.WriteSuccess(w, "Progress updated successfully", nil)
 }
 
 func (h *ProgressHandler) GetStats(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
-
-	stats, err := h.db.GetUserStats(r.Context(), userID)
-	if err != nil {
-		http.Error(w, "Failed to fetch user stats", http.StatusInternalServerError)
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "User stats retrieved successfully",
-		Data:    stats,
-	})
+	stats, err := h.db.GetUserStats(r.Context(), userID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch user stats")
+		return
+	}
+
+	httputil.WriteSuccess(w, "User stats retrieved successfully", stats)
 }
 
 func (h *ProgressHandler) GetPathProgress(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
 	pathID := chi.URLParam(r, "id")
 
 	progress, err := h.db.GetPathProgress(r.Context(), userID, pathID)
 	if err != nil {
-		http.Error(w, "Failed to fetch path progress", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch path progress")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Path progress retrieved successfully",
-		Data:    progress,
-	})
+	httputil.WriteSuccess(w, "Path progress retrieved successfully", progress)
 }

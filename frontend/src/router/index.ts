@@ -84,17 +84,16 @@ const router = createRouter({
       component: GuidesView,
       meta: { requiresAuth: true },
     },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/login',
+    },
   ],
 })
 
 // Navigation guard for authentication
 router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
-  if (typeof window === 'undefined') {
-    next()
-    return
-  }
-
-  const token = window.localStorage.getItem('token')
+  const token = localStorage.getItem('token')
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   if (requiresAuth && !token) {

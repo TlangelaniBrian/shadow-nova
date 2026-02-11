@@ -1,4 +1,5 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
+import router from '@/router';
 
 const client = axios.create({
     baseURL: (import.meta.env.VITE_API_URL || 'http://localhost:8080') + '/api',
@@ -21,18 +22,20 @@ client.interceptors.request.use(
     }
 );
 
-// Response interceptor to handle 401s
+// Response interceptor to unwrap backend { message, data } envelope and handle 401s
 client.interceptors.response.use(
-    (response: AxiosResponse) => response,
+    (response: AxiosResponse) => {
+        if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+            response.data = response.data.data;
+        }
+        return response;
+    },
     (error: AxiosError) => {
-        if (error.response && error.response.status === 401) {
-            // Clear token on 401
+        if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            // Optionally redirect to login
-            // window.location.href = '/login';
+            router.push('/login');
         }
-        // Return the error to be handled by composables
         return Promise.reject(error);
     }
 );

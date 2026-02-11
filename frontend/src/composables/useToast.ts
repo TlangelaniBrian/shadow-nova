@@ -1,5 +1,6 @@
 import { toast } from 'vue-sonner';
 import type { AppError } from '@/types/errors';
+import { ERROR_MESSAGES } from '@/types/errors';
 
 interface UseToastReturn {
     success: (message: string, description?: string) => void;
@@ -39,17 +40,11 @@ export function useToast(): UseToastReturn {
     };
 
     const showError = (appError: AppError) => {
-        const errorMessages: Record<string, string> = {
-            'API_ERROR': 'Something went wrong. Please try again.',
-            'NETWORK_ERROR': 'Unable to connect. Please check your internet connection.',
-            'VALIDATION_ERROR': appError.message,
-            'AUTH_ERROR': 'Authentication failed. Please log in again.',
-        };
-
-        const message = errorMessages[appError.code] || appError.message || 'An unexpected error occurred.';
+        const message = appError.code === 'VALIDATION_ERROR'
+            ? appError.message
+            : (ERROR_MESSAGES[appError.code] || appError.message || 'An unexpected error occurred.');
 
         toast.error(message, {
-            description: appError.details ? String(appError.details) : undefined,
             duration: 5000,
         });
     };

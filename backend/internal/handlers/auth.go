@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"shadow-nova/backend/internal/auth"
 	"shadow-nova/backend/internal/database"
+	"shadow-nova/backend/internal/httputil"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
 
@@ -25,58 +25,58 @@ func NewAuthHandler(googleAuth *auth.GoogleAuthService, db database.Service) *Au
 	}
 }
 
-// GoogleLogin initiates Google OAuth flow
 func (h *AuthHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
-	state := "random-state-token" // TODO: Generate and store secure state token
+	state, err := auth.GenerateState("google")
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate state")
+		return
+	}
+	auth.SetStateCookie(w, state)
 	url := h.googleAuth.GetAuthURL(state)
-	
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"auth_url": url,
-	})
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]string{"auth_url": url})
 }
 
-// GoogleCallback handles the OAuth callback from Google
 func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
+	state := r.URL.Query().Get("state")
+	if _, err := auth.ValidateState(r, w, state); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid or expired OAuth state")
+		return
+	}
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		http.Error(w, "Missing code parameter", http.StatusBadRequest)
+		httputil.WriteError(w, http.StatusBadRequest, "Missing code parameter")
 		return
 	}
-	
-	// Exchange code for token
+
 	oauth2Token, err := h.googleAuth.ExchangeCodeForToken(ctx, code)
 	if err != nil {
-		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to exchange token")
 		return
 	}
-	
-	// Extract ID token
+
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		http.Error(w, "No id_token in response", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "No id_token in response")
 		return
 	}
-	
-	// Verify ID token
+
 	userInfo, err := h.googleAuth.VerifyGoogleToken(ctx, rawIDToken)
 	if err != nil {
-		http.Error(w, "Failed to verify token", http.StatusUnauthorized)
+		httputil.WriteError(w, http.StatusUnauthorized, "Failed to verify token")
 		return
 	}
-	
-	// Generate our JWT
+
 	jwtToken, err := auth.GenerateJWT(userInfo.Sub, userInfo.Name, userInfo.Email)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-	
-	// Return JWT to client
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"token": jwtToken,
 		"user": map[string]string{
 			"id":      userInfo.Sub,
@@ -87,35 +87,29 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// VerifyGoogleToken verifies a Google ID token from the frontend
 func (h *AuthHandler) VerifyGoogleToken(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDToken string `json:"id_token" validate:"required"`
 	}
-	
+
 	if err := validator.ValidateRequest(r, &req); err != nil {
 		validator.WriteValidationError(w, err)
 		return
 	}
-	
-	// Verify the Google token
+
 	userInfo, err := h.googleAuth.VerifyGoogleToken(r.Context(), req.IDToken)
 	if err != nil {
-		http.Error(w, "Invalid Google token", http.StatusUnauthorized)
+		httputil.WriteError(w, http.StatusUnauthorized, "Invalid Google token")
 		return
 	}
-	
-	// Generate our JWT
+
 	jwtToken, err := auth.GenerateJWT(userInfo.Sub, userInfo.Name, userInfo.Email)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-	
-	// TODO: Save or update user in database
-	
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"token": jwtToken,
 		"user": map[string]string{
 			"id":      userInfo.Sub,
@@ -126,20 +120,17 @@ func (h *AuthHandler) VerifyGoogleToken(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// Register handles user registration (traditional email/password)
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req models.RegisterRequest
-	
-	// Validate request
+
 	if err := validator.ValidateRequest(r, &req); err != nil {
 		validator.WriteValidationError(w, err)
 		return
 	}
-	
-	// Hash password
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Failed to process password", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to process password")
 		return
 	}
 
@@ -149,78 +140,45 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(hashedPassword),
 	}
 
-	// Create user in database
 	if err := h.db.CreateUser(r.Context(), user); err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "User registered successfully",
-		Data: map[string]string{
-			"username": req.Username,
-			"email":    req.Email,
-		},
+
+	httputil.WriteCreated(w, "User registered successfully", map[string]string{
+		"username": req.Username,
+		"email":    req.Email,
 	})
 }
 
-// Login handles user authentication (traditional email/password)
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req models.LoginRequest
-	
-	// Validate request
+
 	if err := validator.ValidateRequest(r, &req); err != nil {
 		validator.WriteValidationError(w, err)
 		return
 	}
-	
-	// Get user from database
+
 	user, err := h.db.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		httputil.WriteError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
-	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		httputil.WriteError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
-	// Generate JWT
-	// Using User ID as sub
 	jwtToken, err := auth.GenerateJWT(strconv.Itoa(user.ID), user.Username, user.Email)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Login successful",
-		Data: map[string]string{
-			"token": jwtToken,
-			"username": user.Username,
-			"email": user.Email,
-		},
-	})
-}
 
-// UpdateProgress handles learning path progress updates
-func (h *AuthHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
-	var req models.UpdateProgressRequest
-	
-	// Validate request
-	if err := validator.ValidateRequest(r, &req); err != nil {
-		validator.WriteValidationError(w, err)
-		return
-	}
-	
-	// TODO: Update progress in database
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Progress updated successfully",
+	httputil.WriteSuccess(w, "Login successful", map[string]string{
+		"token":    jwtToken,
+		"username": user.Username,
+		"email":    user.Email,
 	})
 }

@@ -1,13 +1,16 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
+
 	"shadow-nova/backend/internal/auth"
 	"shadow-nova/backend/internal/database"
+	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
-	"strconv"
 )
 
 type GitHubHandler struct {
@@ -23,113 +26,121 @@ func NewGitHubHandler(authService *auth.GitHubAuthService, db database.Service) 
 }
 
 func (h *GitHubHandler) Login(w http.ResponseWriter, r *http.Request) {
-	// State should be random to prevent CSRF
-	state := "login" 
+	state, err := auth.GenerateState("login")
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate state")
+		return
+	}
+	auth.SetStateCookie(w, state)
 	url := h.authService.GetLoginURL(state)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func (h *GitHubHandler) Connect(w http.ResponseWriter, r *http.Request) {
-	// This endpoint is protected, so we know the user ID
-	userID := r.Context().Value("user_id").(int)
-	
-	// Set a cookie to remember who initiated the connection
-	// In production, sign this value!
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "github_connect_user_id",
 		Value:    fmt.Sprintf("%d", userID),
 		Path:     "/",
 		HttpOnly: true,
-		MaxAge:   300, // 5 minutes
+		MaxAge:   300,
 	})
 
-	state := "connect"
+	state, err := auth.GenerateState("connect")
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate state")
+		return
+	}
+	auth.SetStateCookie(w, state)
 	url := h.authService.GetLoginURL(state)
-	
-	// Return the URL as JSON instead of redirecting
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"url": url,
-	})
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
 func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state") // "login" or "connect"
+	state := r.URL.Query().Get("state")
 
 	if code == "" {
-		http.Error(w, "Code not found", http.StatusBadRequest)
+		httputil.WriteError(w, http.StatusBadRequest, "Code not found")
 		return
 	}
 
-	// Exchange code for token
+	flow, err := auth.ValidateState(r, w, state)
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid or expired OAuth state")
+		return
+	}
+
 	token, err := h.authService.Exchange(r.Context(), code)
 	if err != nil {
-		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to exchange token")
 		return
 	}
 
-	// Get GitHub user info
 	ghUser, err := h.authService.GetUser(r.Context(), token)
 	if err != nil {
-		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to get user info")
 		return
 	}
 
 	var userID int
 	var redirectPath string
 
-	if state == "connect" {
-		// CONNECT FLOW
-		// Retrieve user ID from cookie
+	if flow == "connect" {
 		cookie, err := r.Cookie("github_connect_user_id")
 		if err != nil {
-			http.Error(w, "Session expired or invalid flow", http.StatusBadRequest)
+			httputil.WriteError(w, http.StatusBadRequest, "Session expired or invalid flow")
 			return
 		}
-		
-		// Clear cookie
+
 		http.SetCookie(w, &http.Cookie{Name: "github_connect_user_id", MaxAge: -1, Path: "/"})
-		
-		fmt.Sscanf(cookie.Value, "%d", &userID)
-		redirectPath = "/profile" // Redirect back to profile page
+
+		userID, err = strconv.Atoi(cookie.Value)
+		if err != nil {
+			httputil.WriteError(w, http.StatusBadRequest, "Invalid user ID in cookie")
+			return
+		}
+		redirectPath = "/profile"
 	} else {
-		// LOGIN FLOW
-		// Check if user exists by email
 		user, err := h.db.GetUserByEmail(r.Context(), ghUser.Email)
 		if err != nil {
-			// Handle user not found / registration logic here
-			// For now, fail if not found
-			http.Error(w, "User not found. Please register first.", http.StatusNotFound)
+			httputil.WriteError(w, http.StatusNotFound, "User not found. Please register first.")
 			return
 		}
 		userID = user.ID
-		
-		// Generate JWT for login
+
 		jwtToken, err := auth.GenerateJWT(strconv.Itoa(user.ID), user.Username, user.Email)
 		if err != nil {
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			httputil.WriteError(w, http.StatusInternalServerError, "Failed to generate token")
 			return
 		}
 		redirectPath = fmt.Sprintf("/auth/callback?token=%s", jwtToken)
 	}
 
-	// Save integration (this will also update the user's github_username)
 	integration := &models.GitHubIntegration{
 		UserID:       userID,
 		GithubUserID: fmt.Sprintf("%d", ghUser.ID),
-		Username:     ghUser.Login, // Add username to the integration model
+		Username:     ghUser.Login,
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		TokenExpiry:  token.Expiry,
 	}
-	
+
 	if err := h.db.SaveGitHubToken(r.Context(), integration); err != nil {
-		http.Error(w, "Failed to save integration", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to save integration")
 		return
 	}
 
-	// Redirect to frontend
-	redirectURL := fmt.Sprintf("http://localhost:5173%s", redirectPath)
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5173"
+	}
+	redirectURL := fmt.Sprintf("%s%s", frontendURL, redirectPath)
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }

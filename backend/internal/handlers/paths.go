@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"shadow-nova/backend/internal/database"
+	"shadow-nova/backend/internal/httputil"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
 
@@ -21,30 +21,22 @@ func NewPathsHandler(db database.Service) *PathsHandler {
 func (h *PathsHandler) List(w http.ResponseWriter, r *http.Request) {
 	paths, err := h.db.GetLearningPaths(r.Context())
 	if err != nil {
-		http.Error(w, "Failed to fetch learning paths", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch learning paths")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Learning paths retrieved successfully",
-		Data:    paths,
-	})
+	httputil.WriteSuccess(w, "Learning paths retrieved successfully", paths)
 }
 
 func (h *PathsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	path, err := h.db.GetLearningPath(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Learning path not found", http.StatusNotFound)
+		httputil.WriteError(w, http.StatusNotFound, "Learning path not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Learning path retrieved successfully",
-		Data:    path,
-	})
+	httputil.WriteSuccess(w, "Learning path retrieved successfully", path)
 }
 
 func (h *PathsHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -62,16 +54,11 @@ func (h *PathsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.CreateLearningPath(r.Context(), path); err != nil {
-		http.Error(w, "Failed to create learning path", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to create learning path")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Learning path created successfully",
-		Data:    path,
-	})
+	httputil.WriteCreated(w, "Learning path created successfully", path)
 }
 
 func (h *PathsHandler) AddModule(w http.ResponseWriter, r *http.Request) {
@@ -90,57 +77,29 @@ func (h *PathsHandler) AddModule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.CreateModule(r.Context(), module); err != nil {
-		http.Error(w, "Failed to create module", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to create module")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Module added successfully",
-		Data:    module,
-	})
+	httputil.WriteCreated(w, "Module added successfully", module)
 }
 
 func (h *PathsHandler) AddLesson(w http.ResponseWriter, r *http.Request) {
-	// Note: We might want to validate module existence first, but FK constraint handles it too
-	// moduleID := chi.URLParam(r, "id") // if route is /modules/{id}/lessons
-
-	var req models.Lesson // Using the model directly for simplicity, or create a specific request struct
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	var req models.Lesson
+	if err := validator.ValidateRequest(r, &req); err != nil {
+		validator.WriteValidationError(w, err)
 		return
 	}
-	
-	// Basic validation
+
 	if req.Title == "" || req.ContentType == "" {
-		http.Error(w, "Title and ContentType are required", http.StatusBadRequest)
+		httputil.WriteError(w, http.StatusBadRequest, "Title and ContentType are required")
 		return
 	}
 
-	// Ensure ModuleID is set from URL if we use nested routes, or body
-	// For now assuming it's in the body or we parse it from URL
-	// moduleIDStr := chi.URLParam(r, "id")
-	// Convert string to int... skipping for brevity, assuming we pass it in body for now or use a utility
-	// Let's assume the route is POST /modules/{id}/lessons and we parse ID
-	
-	// Actually, let's stick to the plan: POST /modules/{id}/lessons
-	// We need to parse the ID.
-	// Since I can't easily import strconv here without seeing imports, I'll rely on the body having ModuleID for now
-	// OR I'll add strconv to imports in a separate step.
-	
-	// Let's just use the body for ModuleID for this iteration to avoid import errors, 
-	// but normally we'd grab it from URL.
-	
 	if err := h.db.CreateLesson(r.Context(), &req); err != nil {
-		http.Error(w, "Failed to create lesson", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to create lesson")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Lesson added successfully",
-		Data:    req,
-	})
+	httputil.WriteCreated(w, "Lesson added successfully", req)
 }

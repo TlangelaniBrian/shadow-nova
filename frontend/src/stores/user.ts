@@ -12,7 +12,6 @@ export const useUserStore = defineStore('user', () => {
       const response = await authApi.loginWithGoogle(googleToken);
       setSession(response.data.token, response.data.user);
     } catch (error) {
-      console.error('Login failed:', error);
       throw error;
     }
   }
@@ -22,7 +21,6 @@ export const useUserStore = defineStore('user', () => {
       const response = await authApi.handleGoogleCallback(code);
       setSession(response.data.token, response.data.user);
     } catch (error) {
-      console.error('Google callback failed:', error);
       throw error;
     }
   }
@@ -32,7 +30,6 @@ export const useUserStore = defineStore('user', () => {
       await authApi.linkGitHub(code);
       // Optionally refresh user profile if it contains linked accounts info
     } catch (error) {
-      console.error('GitHub linking failed:', error);
       throw error;
     }
   }

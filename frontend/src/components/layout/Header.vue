@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Search, Bell, ChevronDown, Menu } from 'lucide-vue-next'
 import { useUIStore } from '@/stores/ui'
+import { useUserStore } from '@/stores/user'
 
 const uiStore = useUIStore()
 const { toggleSidebar } = uiStore
+const userStore = useUserStore()
 
 const isLive = ref(true)
-const user = ref({
-  name: "Anddy's Makeover",
-  id: "1234567",
-  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anddy"
-})
+const user = computed(() => ({
+  name: userStore.user?.name || 'Developer',
+  id: userStore.user?.id || '',
+  avatar: userStore.user?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userStore.user?.name || 'default'}`,
+}))
 </script>
 
 <template>

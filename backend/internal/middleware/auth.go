@@ -2,12 +2,18 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"shadow-nova/backend/internal/httputil"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+type contextKey string
+
+const UserIDKey contextKey = "user_id"
 
 type AuthMiddleware struct {
 	secret []byte
@@ -19,53 +25,51 @@ func NewAuthMiddleware(secret string) *AuthMiddleware {
 	}
 }
 
+func GetUserID(r *http.Request) (int, bool) {
+	userID, ok := r.Context().Value(UserIDKey).(int)
+	return userID, ok
+}
+
 func (a *AuthMiddleware) VerifyToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			httputil.WriteError(w, http.StatusUnauthorized, "Authorization header required")
 			return
 		}
 
 		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				return nil, jwt.ErrSignatureInvalid
 			}
 			return a.secret, nil
 		})
 
 		if err != nil || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			httputil.WriteError(w, http.StatusUnauthorized, "Invalid token")
 			return
 		}
 
-		// Extract claims and user_id
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+			httputil.WriteError(w, http.StatusUnauthorized, "Invalid token claims")
 			return
 		}
 
-		// Get user_id from claims and convert to int
 		userIDStr, ok := claims["user_id"].(string)
 		if !ok {
-			fmt.Printf("[Auth] Failed to extract user_id from claims. Claims: %+v\n", claims)
-			http.Error(w, "Invalid user_id in token", http.StatusUnauthorized)
+			httputil.WriteError(w, http.StatusUnauthorized, "Invalid user_id in token")
 			return
 		}
 
-		// Convert string user_id to int
-		userID := 0
-		fmt.Sscanf(userIDStr, "%d", &userID)
-		fmt.Printf("[Auth] Extracted user_id: '%s' -> %d\n", userIDStr, userID)
-		if userID == 0 {
-			http.Error(w, "Invalid user_id format", http.StatusUnauthorized)
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil || userID == 0 {
+			httputil.WriteError(w, http.StatusUnauthorized, "Invalid user_id format")
 			return
 		}
 
-		// Add user_id to context
-		ctx := context.WithValue(r.Context(), "user_id", userID)
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -27,6 +27,9 @@ func (s *service) GetLearningPaths(ctx context.Context) ([]models.LearningPath, 
 		}
 		paths = append(paths, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating learning paths: %w", err)
+	}
 
 	return paths, nil
 }
@@ -65,6 +68,9 @@ func (s *service) GetLearningPath(ctx context.Context, id string) (*models.Learn
 		}
 		modules = append(modules, m)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating modules: %w", err)
+	}
 	p.Modules = modules
 
 	// Fetch Lessons for each module (N+1 query for now, can optimize later if needed)
@@ -79,16 +85,21 @@ func (s *service) GetLearningPath(ctx context.Context, id string) (*models.Learn
 		if err != nil {
 			return nil, fmt.Errorf("failed to get lessons for module %d: %w", p.Modules[i].ID, err)
 		}
-		defer lRows.Close()
 
 		var lessons []models.Lesson
 		for lRows.Next() {
 			var l models.Lesson
 			if err := lRows.Scan(&l.ID, &l.ModuleID, &l.Title, &l.ContentType, &l.ContentURL, &l.ContentBody, &l.DurationMinutes, &l.OrderIndex, &l.CreatedAt); err != nil {
+				lRows.Close()
 				return nil, fmt.Errorf("failed to scan lesson: %w", err)
 			}
 			lessons = append(lessons, l)
 		}
+		if err := lRows.Err(); err != nil {
+			lRows.Close()
+			return nil, fmt.Errorf("error iterating lessons for module %d: %w", p.Modules[i].ID, err)
+		}
+		lRows.Close()
 		p.Modules[i].Lessons = lessons
 	}
 

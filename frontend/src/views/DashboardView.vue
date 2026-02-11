@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
+import { ref } from 'vue'
+import { useUserStore } from '@/stores/user'
 
-const user = ref<any>(null)
+const userStore = useUserStore()
+const user = computed(() => userStore.user)
 
-// Restoring Shadow Nova Stats Data
 const stats = ref([
   { label: 'Courses Completed', value: '12', trend: '+15%', icon: '📚', color: 'bg-purple-100 text-purple-600' },
   { label: 'Projects Built', value: '8', trend: '+23%', icon: '🚀', color: 'bg-blue-100 text-blue-600' },
@@ -18,12 +20,6 @@ const currentPath = ref({
   completed: 8,
 })
 
-onMounted(() => {
-  const userData = localStorage.getItem('user')
-  if (userData) {
-    user.value = JSON.parse(userData)
-  }
-})
 </script>
 
 <template>

@@ -1,3 +1,13 @@
+// Shared error message constants
+export const ERROR_MESSAGES: Record<string, string> = {
+    'API_ERROR': 'Something went wrong. Please try again.',
+    'NETWORK_ERROR': 'Unable to connect. Please check your internet connection.',
+    'AUTH_ERROR': 'Authentication failed. Please log in again.',
+    'VALIDATION_ERROR': 'Please check your input and try again.',
+    'NOT_FOUND': 'The requested resource was not found.',
+    'SERVER_ERROR': 'A server error occurred. Please try again later.',
+};
+
 // Error types for the application
 
 export interface AppError {

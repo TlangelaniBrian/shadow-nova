@@ -23,10 +23,7 @@ export function useProjects(): UseProjectsReturn {
 
         try {
             const response = await projectsApi.getProjects();
-            // Backend returns: { message: string, data: Project[] }
-            // Axios gives us response.data = { message, data }
-            // So we need response.data.data to get the actual projects
-            const projectsData = (response.data as any).data || response.data;
+            const projectsData = response.data;
             projects.value = projectsData;
             isLoading.value = false;
             return success(projectsData);
@@ -44,8 +41,7 @@ export function useProjects(): UseProjectsReturn {
 
         try {
             const response = await projectsApi.createProject(data);
-            // Unwrap backend response
-            const newProject = (response.data as any).data || response.data;
+            const newProject = response.data;
             projects.value.push(newProject);
             isLoading.value = false;
             return success(newProject);

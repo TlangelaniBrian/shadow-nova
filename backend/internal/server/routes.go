@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"shadow-nova/backend/internal/ai"
@@ -37,8 +38,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api", func(r chi.Router) {
-		// Initialize auth middleware with a secret (should be from env in real app)
-		authMiddleware := middleware.NewAuthMiddleware("my-secret-key")
+		jwtSecret := os.Getenv("JWT_SECRET")
+		if jwtSecret == "" {
+			log.Fatal("JWT_SECRET environment variable is required")
+		}
+		authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
 		
 		// Initialize Google Auth service
 		googleAuth, err := auth.NewGoogleAuthService()

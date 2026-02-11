@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"shadow-nova/backend/internal/database"
 	"shadow-nova/backend/internal/flags"
+	"shadow-nova/backend/internal/httputil"
 	"shadow-nova/backend/internal/models"
 
 	"golang.org/x/crypto/bcrypt"
@@ -50,26 +50,32 @@ func NewServer() *http.Server {
 		fmt.Printf("Failed to seed learning paths: %v\n", err)
 	}
 
-	// Seed super user
-	go func() {
-		ctx := context.Background()
-		email := "mrbtmkhabela@gmail.com"
-		_, err := NewServer.db.GetUserByEmail(ctx, email)
-		if err != nil {
-			// User doesn't exist (or error), try to create
-			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("Sn2026pw"), bcrypt.DefaultCost)
-			user := &models.User{
-				Email:        email,
-				Username:     "SuperAdmin",
-				PasswordHash: string(hashedPassword),
+	// Seed super user (only if ADMIN_DEFAULT_PASSWORD is set)
+	adminPassword := os.Getenv("ADMIN_DEFAULT_PASSWORD")
+	if adminPassword != "" {
+		go func() {
+			ctx := context.Background()
+			email := "mrbtmkhabela@gmail.com"
+			_, err := NewServer.db.GetUserByEmail(ctx, email)
+			if err != nil {
+				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+				if err != nil {
+					fmt.Printf("Failed to hash admin password: %v\n", err)
+					return
+				}
+				user := &models.User{
+					Email:        email,
+					Username:     "SuperAdmin",
+					PasswordHash: string(hashedPassword),
+				}
+				if err := NewServer.db.CreateUser(ctx, user); err != nil {
+					fmt.Printf("Failed to seed super user: %v\n", err)
+				} else {
+					fmt.Println("Super user seeded successfully")
+				}
 			}
-			if err := NewServer.db.CreateUser(ctx, user); err != nil {
-				fmt.Printf("Failed to seed super user: %v\n", err)
-			} else {
-				fmt.Println("Super user seeded successfully")
-			}
-		}
-	}()
+		}()
+	}
 
 	// Declare Server config
 	server := &http.Server{
@@ -88,7 +94,5 @@ func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, _ := json.Marshal(s.db.Health())
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonResp)
+	httputil.WriteJSON(w, http.StatusOK, s.db.Health())
 }

@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"shadow-nova/backend/internal/database"
+	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
 )
@@ -19,19 +20,14 @@ func NewProjectsHandler(db database.Service) *ProjectsHandler {
 func (h *ProjectsHandler) List(w http.ResponseWriter, r *http.Request) {
 	projects, err := h.db.GetProjects(r.Context())
 	if err != nil {
-		http.Error(w, "Failed to fetch projects", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch projects")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Projects retrieved successfully",
-		Data:    projects,
-	})
+	httputil.WriteSuccess(w, "Projects retrieved successfully", projects)
 }
 
 func (h *ProjectsHandler) Create(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add Admin check here
 	var req models.CreateProjectRequest
 	if err := validator.ValidateRequest(r, &req); err != nil {
 		validator.WriteValidationError(w, err)
@@ -47,20 +43,19 @@ func (h *ProjectsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.CreateProject(r.Context(), project); err != nil {
-		http.Error(w, "Failed to create project", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to create project")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Project created successfully",
-		Data:    project,
-	})
+	httputil.WriteCreated(w, "Project created successfully", project)
 }
 
 func (h *ProjectsHandler) Submit(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int)
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
 
 	var req models.SubmitProjectRequest
 	if err := validator.ValidateRequest(r, &req); err != nil {
@@ -77,14 +72,9 @@ func (h *ProjectsHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.SubmitProject(r.Context(), submission); err != nil {
-		http.Error(w, "Failed to submit project", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to submit project")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
-		Message: "Project submitted successfully",
-		Data:    submission,
-	})
+	httputil.WriteCreated(w, "Project submitted successfully", submission)
 }

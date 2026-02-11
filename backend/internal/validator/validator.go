@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"shadow-nova/backend/internal/httputil"
 	"shadow-nova/backend/internal/models"
 
 	"github.com/go-playground/validator/v10"
@@ -34,25 +35,21 @@ func ValidateRequest(r *http.Request, v interface{}) error {
 
 // WriteValidationError writes formatted validation errors to response
 func WriteValidationError(w http.ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
-	
 	if validationErrs, ok := err.(validator.ValidationErrors); ok {
 		details := make(map[string]string)
 		for _, e := range validationErrs {
 			details[strings.ToLower(e.Field())] = getErrorMessage(e)
 		}
-		
-		json.NewEncoder(w).Encode(models.ErrorResponse{
+
+		httputil.WriteJSON(w, http.StatusBadRequest, models.ErrorResponse{
 			Error:   "Validation failed",
+			Status:  http.StatusBadRequest,
 			Details: details,
 		})
 		return
 	}
-	
-	json.NewEncoder(w).Encode(models.ErrorResponse{
-		Error: err.Error(),
-	})
+
+	httputil.WriteError(w, http.StatusBadRequest, err.Error())
 }
 
 // Custom validator for strong passwords

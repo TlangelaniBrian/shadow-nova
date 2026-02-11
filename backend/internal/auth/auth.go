@@ -1,12 +1,18 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+const oauthStateCookie = "oauth_state"
 
 type JWTClaims struct {
 	UserID string `json:"user_id"`
@@ -60,4 +66,57 @@ func ValidateJWT(tokenString string) (*JWTClaims, error) {
 	}
 	
 	return nil, fmt.Errorf("invalid token")
+}
+
+// GenerateState creates a CSRF-safe state token with a flow prefix
+func GenerateState(flowType string) (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return flowType + ":" + base64.URLEncoding.EncodeToString(b), nil
+}
+
+// SetStateCookie stores the OAuth state in an HttpOnly cookie for CSRF verification.
+func SetStateCookie(w http.ResponseWriter, state string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     oauthStateCookie,
+		Value:    state,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300,
+	})
+}
+
+// ValidateState checks that the state from the OAuth callback matches the cookie,
+// clears the cookie, and returns the flow type.
+func ValidateState(r *http.Request, w http.ResponseWriter, queryState string) (string, error) {
+	cookie, err := r.Cookie(oauthStateCookie)
+	if err != nil {
+		return "", fmt.Errorf("missing state cookie")
+	}
+
+	// Clear the one-time-use cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:   oauthStateCookie,
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+
+	if cookie.Value == "" || cookie.Value != queryState {
+		return "", fmt.Errorf("state mismatch")
+	}
+
+	return parseState(queryState), nil
+}
+
+// parseState extracts the flow type from a state token.
+func parseState(state string) string {
+	parts := strings.SplitN(state, ":", 2)
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return ""
 }

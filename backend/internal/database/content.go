@@ -7,9 +7,12 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"shadow-nova/backend/internal/models"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func (s *service) CreateContentSource(ctx context.Context, source *models.ContentSource) error {
@@ -50,6 +53,9 @@ func (s *service) GetContentSources(ctx context.Context) ([]models.ContentSource
 		}
 		sources = append(sources, src)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating content sources: %w", err)
+	}
 	return sources, nil
 }
 
@@ -60,14 +66,12 @@ func (s *service) CreateContentItem(ctx context.Context, item *models.ContentIte
 		ON CONFLICT (url) DO NOTHING
 		RETURNING id
 	`
-	// ON CONFLICT DO NOTHING means we might not get an ID back if it exists.
-	// We should handle that.
-	
 	err := s.db.QueryRow(ctx, query, item.SourceID, item.Title, item.Description, item.URL, item.ImageURL, item.PublishedAt).Scan(&item.ID)
 	if err != nil {
-		// If no rows returned (conflict), we can ignore or fetch existing.
-		// For now, let's return nil (success) but ID might be 0.
-		return nil 
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil // ON CONFLICT DO NOTHING: item already exists
+		}
+		return fmt.Errorf("failed to create content item: %w", err)
 	}
 
 	return nil
@@ -94,6 +98,9 @@ func (s *service) GetUnprocessedItems(ctx context.Context, limit int) ([]models.
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating unprocessed items: %w", err)
 	}
 
 	return items, nil

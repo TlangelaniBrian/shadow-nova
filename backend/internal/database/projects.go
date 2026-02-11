@@ -29,6 +29,9 @@ func (s *service) GetProjects(ctx context.Context) ([]models.Project, error) {
 		}
 		projects = append(projects, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating projects: %w", err)
+	}
 
 	return projects, nil
 }
@@ -91,6 +94,9 @@ func (s *service) GetUserSubmissions(ctx context.Context, userID int) ([]models.
 			s.Feedback = *feedback
 		}
 		submissions = append(submissions, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating submissions: %w", err)
 	}
 
 	return submissions, nil

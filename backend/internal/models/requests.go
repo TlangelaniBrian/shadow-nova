@@ -25,6 +25,7 @@ type SubmitProjectRequest struct {
 // Generic response structures
 type ErrorResponse struct {
 	Error   string            `json:"error"`
+	Status  int               `json:"status"`
 	Details map[string]string `json:"details,omitempty"`
 }
 

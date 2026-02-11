@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,8 +91,12 @@ func (rl *RateLimiter) cleanupVisitors() {
 
 // CORSMiddleware returns a CORS handler
 func CORSMiddleware() func(http.Handler) http.Handler {
+	origins := []string{"http://localhost:8080", "http://localhost:5173", "http://localhost:5174"}
+	if envOrigins := os.Getenv("CORS_ORIGINS"); envOrigins != "" {
+		origins = strings.Split(envOrigins, ",")
+	}
 	return cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8080", "http://localhost:5173", "http://localhost:5174"},
+		AllowedOrigins:   origins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},

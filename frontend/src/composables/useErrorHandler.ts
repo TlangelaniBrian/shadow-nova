@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue';
 import type { AppError } from '@/types/errors';
+import { ERROR_MESSAGES } from '@/types/errors';
 
 interface UseErrorHandlerReturn {
     error: Ref<AppError | null>;
@@ -13,11 +14,6 @@ export function useErrorHandler(): UseErrorHandlerReturn {
 
     const setError = (err: AppError | null) => {
         error.value = err;
-
-        // Log error for debugging
-        if (err) {
-            console.error('[Error Handler]', err);
-        }
     };
 
     const clearError = () => {
@@ -25,15 +21,10 @@ export function useErrorHandler(): UseErrorHandlerReturn {
     };
 
     const getUserMessage = (err: AppError): string => {
-        // Map error codes to user-friendly messages
-        const messageMap: Record<string, string> = {
-            'API_ERROR': 'Something went wrong. Please try again.',
-            'NETWORK_ERROR': 'Unable to connect. Please check your internet connection.',
-            'VALIDATION_ERROR': err.message, // Use the specific validation message
-            'AUTH_ERROR': 'Authentication failed. Please log in again.',
-        };
-
-        return messageMap[err.code] || err.message || 'An unexpected error occurred.';
+        if (err.code === 'VALIDATION_ERROR') {
+            return err.message;
+        }
+        return ERROR_MESSAGES[err.code] || err.message || 'An unexpected error occurred.';
     };
 
     return {

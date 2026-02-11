@@ -2,7 +2,7 @@ import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosE
 import router from '@/router';
 
 const client = axios.create({
-    baseURL: (import.meta.env.VITE_API_URL || 'http://localhost:8080') + '/api',
+    baseURL: (import.meta.env.VITE_API_URL || 'http://localhost:8080') + '/api/v1',
     headers: {
         'Content-Type': 'application/json',
     },

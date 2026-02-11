@@ -9,6 +9,7 @@ import (
 	"shadow-nova/backend/internal/auth"
 	"shadow-nova/backend/internal/database"
 	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/metrics"
 	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
@@ -140,6 +141,8 @@ func (h *AuthHandler) VerifyGoogleToken(w http.ResponseWriter, r *http.Request) 
 		MaxAge:   86400, // 24 hours
 	})
 
+	metrics.UserLogins.WithLabelValues("google").Inc()
+
 	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]string{
 			"id":      userInfo.Sub,
@@ -174,6 +177,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
+
+	metrics.UserRegistrations.Inc()
 
 	httputil.WriteCreated(w, "User registered successfully", map[string]string{
 		"username": req.Username,
@@ -217,6 +222,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   86400, // 24 hours
 	})
+
+	metrics.UserLogins.WithLabelValues("email").Inc()
 
 	httputil.WriteSuccess(w, "Login successful", map[string]string{
 		"username": user.Username,

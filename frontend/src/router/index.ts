@@ -74,6 +74,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/settings',
+      name: 'settings',
+      component: () => import(/* webpackChunkName: "settings" */ '../views/SettingsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/login',
     },

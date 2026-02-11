@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"log"
+	"shadow-nova/backend/internal/logging"
 	"shadow-nova/backend/internal/models"
 
 	"github.com/jackc/pgx/v5"
@@ -10,16 +10,16 @@ import (
 
 func (s *service) SeedLearningPaths(ctx context.Context) error {
 	// Check if paths already exist
-	paths, err := s.GetLearningPaths(ctx)
+	paths, err := s.GetLearningPaths(ctx, 1, 0)
 	if err != nil {
 		return err
 	}
 	if len(paths) > 0 {
-		log.Println("Learning paths already exist, skipping seeding.")
+		logging.Info("learning paths already exist, skipping seeding")
 		return nil
 	}
 
-	log.Println("Seeding learning paths...")
+	logging.Info("seeding learning paths")
 
 	// --- FRONTEND PATHS ---
 
@@ -91,7 +91,7 @@ func (s *service) SeedLearningPaths(ctx context.Context) error {
 		return err
 	}
 
-	log.Println("Learning paths seeded successfully!")
+	logging.Info("learning paths seeded successfully")
 	return nil
 }
 

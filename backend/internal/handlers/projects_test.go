@@ -14,17 +14,20 @@ import (
 func TestProjectsHandler_List(t *testing.T) {
 	// Setup
 	mockDB := &database.MockService{
-		GetProjectsFunc: func(ctx context.Context) ([]models.Project, error) {
+		GetProjectsFunc: func(ctx context.Context, limit, offset int) ([]models.Project, error) {
 			return []models.Project{
 				{ID: "p1", Title: "Project 1"},
 				{ID: "p2", Title: "Project 2"},
 			}, nil
 		},
+		GetProjectsCountFunc: func(ctx context.Context) (int, error) {
+			return 2, nil
+		},
 	}
 	handler := NewProjectsHandler(mockDB)
 
 	// Request
-	req := httptest.NewRequest("GET", "/projects", nil)
+	req := httptest.NewRequest("GET", "/projects?page=1&limit=20", nil)
 	rr := httptest.NewRecorder()
 
 	// Execute
@@ -35,7 +38,7 @@ func TestProjectsHandler_List(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	var response models.SuccessResponse
+	var response models.PaginatedResponse
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +46,14 @@ func TestProjectsHandler_List(t *testing.T) {
 	projects := response.Data.([]interface{})
 	if len(projects) != 2 {
 		t.Errorf("expected 2 projects, got %d", len(projects))
+	}
+
+	if response.Total != 2 {
+		t.Errorf("expected total 2, got %d", response.Total)
+	}
+
+	if response.Page != 1 {
+		t.Errorf("expected page 1, got %d", response.Page)
 	}
 }
 

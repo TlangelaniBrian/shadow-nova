@@ -3,8 +3,8 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
+	"shadow-nova/backend/internal/logging"
 	"shadow-nova/backend/internal/models"
 	"strconv"
 	"time"
@@ -18,14 +18,25 @@ type Service interface {
 	Close()
 	CreateUser(ctx context.Context, user *models.User) error
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	GetUserByID(ctx context.Context, userID int) (*models.User, error)
+	UpdateUser(ctx context.Context, userID int, user *models.User) error
+	UpdateUserPassword(ctx context.Context, userID int, hashedPassword string) error
 	InitSchema(ctx context.Context) error
 
 	// Learning Paths
-	GetLearningPaths(ctx context.Context) ([]models.LearningPath, error)
+	GetLearningPaths(ctx context.Context, limit, offset int) ([]models.LearningPath, error)
+	GetLearningPathsCount(ctx context.Context) (int, error)
 	GetLearningPath(ctx context.Context, id string) (*models.LearningPath, error)
 	CreateLearningPath(ctx context.Context, path *models.LearningPath) error
+	UpdateLearningPath(ctx context.Context, id string, updates *models.LearningPath) error
+	DeleteLearningPath(ctx context.Context, id string) error
 	CreateModule(ctx context.Context, module *models.Module) error
+	UpdateModule(ctx context.Context, id int, updates *models.Module) error
+	DeleteModule(ctx context.Context, id int) error
 	CreateLesson(ctx context.Context, lesson *models.Lesson) error
+	UpdateLesson(ctx context.Context, id int, updates *models.Lesson) error
+	DeleteLesson(ctx context.Context, id int) error
+	GetLesson(ctx context.Context, lessonID int) (*models.Lesson, error)
 
 	// Seeding
 	SeedLearningPaths(ctx context.Context) error
@@ -34,20 +45,28 @@ type Service interface {
 	UpdateUserProgress(ctx context.Context, userID int, req models.UpdateProgressRequest) error
 	GetUserStats(ctx context.Context, userID int) (*models.UserStats, error)
 	GetPathProgress(ctx context.Context, userID int, pathID string) (*models.PathProgress, error)
+	GetUserProgressForPath(ctx context.Context, userID int, pathID string) ([]models.UserProgress, error)
 
 	// Projects & GitHub
-	GetProjects(ctx context.Context) ([]models.Project, error)
+	GetProjects(ctx context.Context, limit, offset int) ([]models.Project, error)
+	GetProjectsCount(ctx context.Context) (int, error)
+	GetProject(ctx context.Context, id string) (*models.Project, error)
 	CreateProject(ctx context.Context, project *models.Project) error
+	UpdateProject(ctx context.Context, id string, updates *models.Project) error
+	DeleteProject(ctx context.Context, id string) error
 	SubmitProject(ctx context.Context, sub *models.ProjectSubmission) error
-	GetUserSubmissions(ctx context.Context, userID int) ([]models.ProjectSubmission, error)
+	GetUserSubmissions(ctx context.Context, userID int, limit, offset int) ([]models.ProjectSubmission, error)
+	GetUserSubmissionsCount(ctx context.Context, userID int) (int, error)
 	GetSubmission(ctx context.Context, submissionID int) (*models.ProjectSubmission, error)
 	UpdateSubmission(ctx context.Context, submissionID int, status, feedback string) error
 	SaveGitHubToken(ctx context.Context, integration *models.GitHubIntegration) error
 	GetGitHubIntegration(ctx context.Context, userID int) (*models.GitHubIntegration, error)
+	DeleteGitHubIntegration(ctx context.Context, userID int) error
 
 	// FeedSourceEngine & Content
 	CreateContentSource(ctx context.Context, source *models.ContentSource) error
-	GetContentSources(ctx context.Context) ([]models.ContentSource, error)
+	GetContentSources(ctx context.Context, limit, offset int) ([]models.ContentSource, error)
+	GetContentSourcesCount(ctx context.Context) (int, error)
 	CreateContentItem(ctx context.Context, item *models.ContentItem) error
 	GetUnprocessedItems(ctx context.Context, limit int) ([]models.ContentItem, error)
 	UpdateContentItemAI(ctx context.Context, item *models.ContentItem) error
@@ -61,6 +80,11 @@ type Service interface {
 	IsTokenBlacklisted(ctx context.Context, jti string) (bool, error)
 	BlacklistAllUserTokens(ctx context.Context, userID int, reason string) error
 	DeleteExpiredBlacklistedTokens(ctx context.Context) (int64, error)
+
+	// Idempotency
+	StoreIdempotentResponse(ctx context.Context, key string, userID int, path, method string, status int, body string, expiresAt time.Time) error
+	GetIdempotentResponse(ctx context.Context, key string, userID int) (*IdempotentResponse, error)
+	DeleteExpiredIdempotencyKeys(ctx context.Context) (int64, error)
 
 	// Ownership Validation (IDOR Prevention)
 	UserHasAccessToPath(ctx context.Context, userID int, pathID string) (bool, error)
@@ -77,6 +101,13 @@ type Service interface {
 
 type service struct {
 	db *pgxpool.Pool
+}
+
+// IdempotentResponse represents a cached response from a previous request
+type IdempotentResponse struct {
+	Key        string
+	StatusCode int
+	Body       string
 }
 
 func New() (Service, error) {
@@ -101,7 +132,7 @@ func New() (Service, error) {
 
 	// Add connection pool metrics callback
 	config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		log.Printf("New database connection established")
+		logging.Debug("new database connection established")
 		return nil
 	}
 
@@ -119,8 +150,7 @@ func New() (Service, error) {
 		return nil, fmt.Errorf("unable to ping database: %w", err)
 	}
 
-	log.Printf("Database connection pool initialized (max: %d, min: %d)",
-		config.MaxConns, config.MinConns)
+	logging.Info("database connection pool initialized", "max_conns", config.MaxConns, "min_conns", config.MinConns)
 
 	return &service{db: db}, nil
 }
@@ -221,19 +251,19 @@ func (s *service) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
 		if p := recover(); p != nil {
 			// Rollback on panic
 			if rbErr := tx.Rollback(txCtx); rbErr != nil {
-				log.Printf("failed to rollback transaction after panic: %v", rbErr)
+				logging.Error("failed to rollback transaction after panic", rbErr)
 			}
 			panic(p) // Re-raise panic after rollback
 		} else if err != nil {
 			// Rollback on error
 			if rbErr := tx.Rollback(txCtx); rbErr != nil {
-				log.Printf("failed to rollback transaction: %v", rbErr)
+				logging.Error("failed to rollback transaction", rbErr)
 			}
 		} else {
 			// Commit on success
 			err = tx.Commit(txCtx)
 			if err != nil {
-				log.Printf("failed to commit transaction: %v", err)
+				logging.Error("failed to commit transaction", err)
 			}
 		}
 	}()

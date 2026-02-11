@@ -140,26 +140,29 @@ shadow-nova/
 
 ## API Endpoints
 
+All API endpoints are versioned under `/api/v1` for stability and future extensibility.
+
 ### Public Routes
 ```
-GET  /health                          # Health check
-GET  /metrics                         # Prometheus metrics
-GET  /api/auth/google                 # Google OAuth login
-GET  /api/auth/google/callback        # OAuth callback
-POST /api/auth/google/verify          # Verify Google token
-POST /api/register                    # Traditional signup
-POST /api/login                       # Traditional login
-GET  /api/projects                    # List projects
+GET  /health                              # Health check
+GET  /metrics                             # Prometheus metrics
+GET  /version                             # API version info
+GET  /api/v1/auth/google                  # Google OAuth login
+GET  /api/v1/auth/google/callback         # OAuth callback
+POST /api/v1/auth/google/verify           # Verify Google token
+POST /api/v1/register                     # Traditional signup
+POST /api/v1/login                        # Traditional login
+GET  /api/v1/projects                     # List projects
 ```
 
 ### Protected Routes (Require JWT)
 ```
-GET  /api/paths                       # List learning paths
-GET  /api/paths/{id}                  # Get path details
-POST /api/progress                    # Update progress
-GET  /api/stats                       # User statistics
-POST /api/submissions                 # Submit project
-GET  /api/auth/github/connect         # Connect GitHub
+GET  /api/v1/paths                        # List learning paths
+GET  /api/v1/paths/{id}                   # Get path details
+POST /api/v1/progress                     # Update progress
+GET  /api/v1/stats                        # User statistics
+POST /api/v1/submissions                  # Submit project
+GET  /api/v1/auth/github/connect          # Connect GitHub
 ```
 
 ## Development
@@ -260,6 +263,7 @@ Custom metrics can be added using the Prometheus Go client. See [frontend/observ
 - [CICD.md](CICD.md) - GitHub Actions workflow
 - [VALIDATION.md](VALIDATION.md) - Request validation
 - [IMPROVEMENTS.md](IMPROVEMENTS.md) - Roadmap
+- [backend/API_VERSIONING.md](backend/API_VERSIONING.md) - API versioning strategy
 
 ## Security
 

@@ -30,10 +30,15 @@ func (s *service) CreateContentSource(ctx context.Context, source *models.Conten
 	return nil
 }
 
-func (s *service) GetContentSources(ctx context.Context) ([]models.ContentSource, error) {
-	query := `SELECT id, name, type, url, last_fetched_at, created_at FROM content_sources`
-	
-	rows, err := s.db.Query(ctx, query)
+func (s *service) GetContentSources(ctx context.Context, limit, offset int) ([]models.ContentSource, error) {
+	query := `
+		SELECT id, name, type, url, last_fetched_at, created_at
+		FROM content_sources
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := s.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query content sources: %w", err)
 	}
@@ -43,11 +48,11 @@ func (s *service) GetContentSources(ctx context.Context) ([]models.ContentSource
 	for rows.Next() {
 		var src models.ContentSource
 		var lastFetched *time.Time
-		
+
 		if err := rows.Scan(&src.ID, &src.Name, &src.Type, &src.URL, &lastFetched, &src.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan content source: %w", err)
 		}
-		
+
 		if lastFetched != nil {
 			src.LastFetchedAt = *lastFetched
 		}
@@ -57,6 +62,13 @@ func (s *service) GetContentSources(ctx context.Context) ([]models.ContentSource
 		return nil, fmt.Errorf("error iterating content sources: %w", err)
 	}
 	return sources, nil
+}
+
+func (s *service) GetContentSourcesCount(ctx context.Context) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM content_sources`
+	err := s.db.QueryRow(ctx, query).Scan(&count)
+	return count, err
 }
 
 func (s *service) CreateContentItem(ctx context.Context, item *models.ContentItem) error {

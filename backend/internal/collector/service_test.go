@@ -14,7 +14,7 @@ import (
 func TestCollectAll(t *testing.T) {
 	// Mock DB
 	mockDB := &database.MockService{
-		GetContentSourcesFunc: func(ctx context.Context) ([]models.ContentSource, error) {
+		GetContentSourcesFunc: func(ctx context.Context, limit, offset int) ([]models.ContentSource, error) {
 			return []models.ContentSource{
 				{ID: 1, Name: "Test Source", Type: "blog_rss", URL: "http://test.com/feed"},
 			}, nil

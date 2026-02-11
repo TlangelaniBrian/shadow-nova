@@ -3,15 +3,15 @@ package httputil
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
+	"shadow-nova/backend/internal/logging"
 	"shadow-nova/backend/internal/models"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(data); err != nil {
-		log.Printf("httputil: failed to encode JSON response: %v", err)
+		logging.Error("failed to encode json response", err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}

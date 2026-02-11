@@ -109,6 +109,39 @@ func (s *service) GetPathProgress(ctx context.Context, userID int, pathID string
 	}, nil
 }
 
+// GetUserProgressForPath returns all user progress records for lessons in a specific path
+func (s *service) GetUserProgressForPath(ctx context.Context, userID int, pathID string) ([]models.UserProgress, error) {
+	query := `
+		SELECT up.id, up.user_id, up.lesson_id, up.completed, up.completed_at, up.created_at
+		FROM user_progress up
+		JOIN lessons l ON up.lesson_id = l.id
+		JOIN modules m ON l.module_id = m.id
+		WHERE up.user_id = $1 AND m.path_id = $2
+		ORDER BY l.order_index ASC
+	`
+
+	rows, err := s.db.Query(ctx, query, userID, pathID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user progress for path: %w", err)
+	}
+	defer rows.Close()
+
+	var progressRecords []models.UserProgress
+	for rows.Next() {
+		var p models.UserProgress
+		if err := rows.Scan(&p.ID, &p.UserID, &p.LessonID, &p.Completed, &p.CompletedAt, &p.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan user progress: %w", err)
+		}
+		progressRecords = append(progressRecords, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating user progress: %w", err)
+	}
+
+	return progressRecords, nil
+}
+
 // UserOwnsProgress checks if a user owns a specific progress record.
 // This prevents IDOR vulnerabilities by ensuring users can only access their own progress.
 func (s *service) UserOwnsProgress(ctx context.Context, userID int, progressID int) (bool, error) {

@@ -1,17 +1,64 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useProgressStore } from '@/stores/progress'
+import { useToast } from '@/composables/useToast'
 
 const userStore = useUserStore()
+const progressStore = useProgressStore()
+const toast = useToast()
+
 const user = computed(() => userStore.user)
 
-const stats = ref([
-  { label: 'Courses Completed', value: '12', trend: '+15%', icon: '📚', color: 'bg-purple-100 text-purple-600' },
-  { label: 'Projects Built', value: '8', trend: '+23%', icon: '🚀', color: 'bg-blue-100 text-blue-600' },
-  { label: 'Hours Learned', value: '147', trend: '+8%', icon: '⏱️', color: 'bg-green-100 text-green-600' },
-  { label: 'Rank', value: '#42', trend: '+5', icon: '🏆', color: 'bg-orange-100 text-orange-600' },
-])
+onMounted(async () => {
+  const result = await progressStore.fetchStats()
+  if (result.error) {
+    toast.showError(result.error)
+  }
+})
+
+const stats = computed(() => {
+  if (!progressStore.stats) {
+    return [
+      { label: 'Courses Completed', value: '0', trend: '+0%', icon: '📚', color: 'bg-purple-100 text-purple-600' },
+      { label: 'Projects Built', value: '0', trend: '+0%', icon: '🚀', color: 'bg-blue-100 text-blue-600' },
+      { label: 'Hours Learned', value: '0', trend: '+0%', icon: '⏱️', color: 'bg-green-100 text-green-600' },
+      { label: 'Rank', value: '#0', trend: '+0', icon: '🏆', color: 'bg-orange-100 text-orange-600' },
+    ]
+  }
+
+  return [
+    {
+      label: 'Courses Completed',
+      value: progressStore.stats.courses_completed.toString(),
+      trend: '+15%',
+      icon: '📚',
+      color: 'bg-purple-100 text-purple-600'
+    },
+    {
+      label: 'XP Earned',
+      value: progressStore.stats.total_xp.toString(),
+      trend: '+23%',
+      icon: '🚀',
+      color: 'bg-blue-100 text-blue-600'
+    },
+    {
+      label: 'Hours Learned',
+      value: progressStore.stats.hours_learned.toString(),
+      trend: '+8%',
+      icon: '⏱️',
+      color: 'bg-green-100 text-green-600'
+    },
+    {
+      label: 'Rank',
+      value: `#${progressStore.stats.rank}`,
+      trend: `+${progressStore.stats.current_streak} streak`,
+      icon: '🏆',
+      color: 'bg-orange-100 text-orange-600'
+    },
+  ]
+})
 
 const currentPath = ref({
   name: 'Full Stack Development',
@@ -34,8 +81,13 @@ const currentPath = ref({
       </div>
     </div>
 
+    <!-- Loading State for Stats -->
+    <div v-if="progressStore.loading" class="flex items-center justify-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+    </div>
+
     <!-- Stats Grid (Bursa Style) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <div
         v-for="stat in stats"
         :key="stat.label"

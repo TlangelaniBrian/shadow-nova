@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"shadow-nova/backend/internal/database"
 	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/metrics"
 	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
@@ -37,6 +38,14 @@ func (h *ProgressHandler) UpdateProgress(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Track lesson completions
+	if req.Completed {
+		lesson, err := h.db.GetLesson(r.Context(), req.LessonID)
+		if err == nil && lesson != nil {
+			metrics.LessonCompletions.WithLabelValues(lesson.ContentType).Inc()
+		}
+	}
+
 	httputil.WriteSuccess(w, "Progress updated successfully", nil)
 }
 
@@ -64,7 +73,8 @@ func (h *ProgressHandler) GetPathProgress(w http.ResponseWriter, r *http.Request
 	}
 	pathID := chi.URLParam(r, "id")
 
-	progress, err := h.db.GetPathProgress(r.Context(), userID, pathID)
+	// Return array of user progress records for each lesson in the path
+	progress, err := h.db.GetUserProgressForPath(r.Context(), userID, pathID)
 	if err != nil {
 		httputil.HandleError(w, err)
 		return

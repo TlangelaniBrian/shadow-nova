@@ -13,14 +13,16 @@ import (
 
 // --- Projects ---
 
-func (s *service) GetProjects(ctx context.Context) ([]models.Project, error) {
+func (s *service) GetProjects(ctx context.Context, limit, offset int) ([]models.Project, error) {
 	query := `
 		SELECT id, title, description, difficulty, tech_stack, created_at
 		FROM projects
+		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
 	`
 
-	rows, err := s.db.Query(ctx, query)
+	rows, err := s.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query projects: %w", err)
 	}
@@ -39,6 +41,13 @@ func (s *service) GetProjects(ctx context.Context) ([]models.Project, error) {
 	}
 
 	return projects, nil
+}
+
+func (s *service) GetProjectsCount(ctx context.Context) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM projects WHERE deleted_at IS NULL`
+	err := s.db.QueryRow(ctx, query).Scan(&count)
+	return count, err
 }
 
 func (s *service) CreateProject(ctx context.Context, project *models.Project) error {
@@ -87,15 +96,16 @@ func (s *service) SubmitProject(ctx context.Context, sub *models.ProjectSubmissi
 	})
 }
 
-func (s *service) GetUserSubmissions(ctx context.Context, userID int) ([]models.ProjectSubmission, error) {
+func (s *service) GetUserSubmissions(ctx context.Context, userID int, limit, offset int) ([]models.ProjectSubmission, error) {
 	query := `
 		SELECT id, user_id, project_id, github_repo_url, pr_url, demo_url, status, feedback, submitted_at
 		FROM project_submissions
 		WHERE user_id = $1
 		ORDER BY submitted_at DESC
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := s.db.Query(ctx, query, userID)
+	rows, err := s.db.Query(ctx, query, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query submissions: %w", err)
 	}
@@ -119,6 +129,13 @@ func (s *service) GetUserSubmissions(ctx context.Context, userID int) ([]models.
 	}
 
 	return submissions, nil
+}
+
+func (s *service) GetUserSubmissionsCount(ctx context.Context, userID int) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM project_submissions WHERE user_id = $1`
+	err := s.db.QueryRow(ctx, query, userID).Scan(&count)
+	return count, err
 }
 
 func (s *service) GetSubmission(ctx context.Context, submissionID int) (*models.ProjectSubmission, error) {
@@ -250,6 +267,30 @@ func (s *service) GetGitHubIntegration(ctx context.Context, userID int) (*models
 	}
 
 	return &integration, nil
+}
+
+func (s *service) DeleteGitHubIntegration(ctx context.Context, userID int) error {
+	return s.WithTx(ctx, func(tx pgx.Tx) error {
+		// Delete the GitHub integration
+		query := `DELETE FROM github_integrations WHERE user_id = $1`
+		result, err := tx.Exec(ctx, query, userID)
+		if err != nil {
+			return fmt.Errorf("failed to delete GitHub integration: %w", err)
+		}
+
+		if result.RowsAffected() == 0 {
+			return errors.NotFound("GitHub integration not found")
+		}
+
+		// Clear github_username from user
+		updateQuery := `UPDATE users SET github_username = NULL WHERE id = $1`
+		_, err = tx.Exec(ctx, updateQuery, userID)
+		if err != nil {
+			return fmt.Errorf("failed to clear github_username: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // UserOwnsSubmission checks if a user owns a specific project submission.

@@ -45,7 +45,7 @@ const handleGoogleResponse = async (response: any) => {
 
   try {
     // Send Google ID token to backend for verification
-    const res = await fetch(`${apiUrl}/api/auth/google/verify`, {
+    const res = await fetch(`${apiUrl}/api/v1/auth/google/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

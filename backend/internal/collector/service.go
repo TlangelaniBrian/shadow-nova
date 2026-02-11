@@ -3,9 +3,10 @@ package collector
 import (
 	"context"
 	"fmt"
-	"log"
 	"shadow-nova/backend/internal/ai"
 	"shadow-nova/backend/internal/database"
+	"shadow-nova/backend/internal/logging"
+	"shadow-nova/backend/internal/metrics"
 	"shadow-nova/backend/internal/models"
 	"time"
 )
@@ -31,15 +32,23 @@ func (s *Service) ProcessUnprocessedItems(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Processing %d items with AI...", len(items))
+	logging.Info("processing items with ai", "count", len(items))
 
 	for _, item := range items {
+		// Track AI processing duration
+		start := time.Now()
+
 		// Call Gemini
 		result, err := s.ai.GenerateSummary(ctx, item.Title, item.Description)
+		duration := time.Since(start).Seconds()
+
 		if err != nil {
-			log.Printf("Failed to generate summary for item %d: %v", item.ID, err)
+			logging.Warn("failed to generate summary", "item_id", item.ID, "error", err)
+			metrics.AIProcessingErrors.Inc()
 			continue
 		}
+
+		metrics.AIProcessingDuration.Observe(duration)
 
 		// Update item
 		item.AISummary = result.Summary
@@ -48,9 +57,9 @@ func (s *Service) ProcessUnprocessedItems(ctx context.Context) error {
 		item.ProcessedByAI = true
 
 		if err := s.db.UpdateContentItemAI(ctx, &item); err != nil {
-			log.Printf("Failed to update item %d: %v", item.ID, err)
+			logging.Error("failed to update item with ai metadata", err, "item_id", item.ID)
 		}
-		
+
 		// Sleep briefly to be nice to the API
 		time.Sleep(1 * time.Second)
 	}
@@ -60,16 +69,17 @@ func (s *Service) ProcessUnprocessedItems(ctx context.Context) error {
 
 // CollectAll fetches content from all registered sources
 func (s *Service) CollectAll(ctx context.Context) error {
-	sources, err := s.db.GetContentSources(ctx)
+	// Get all sources (no pagination needed for collector)
+	sources, err := s.db.GetContentSources(ctx, 1000, 0)
 	if err != nil {
 		return fmt.Errorf("failed to get sources: %w", err)
 	}
 
-	log.Printf("Starting collection for %d sources...", len(sources))
+	logging.Info("starting content collection", "source_count", len(sources))
 
 	for _, source := range sources {
 		if err := s.processSource(ctx, &source); err != nil {
-			log.Printf("Error processing source %s: %v", source.Name, err)
+			logging.Error("failed to process source", err, "source_name", source.Name, "source_url", source.URL)
 			// Continue with next source
 		}
 	}
@@ -78,7 +88,7 @@ func (s *Service) CollectAll(ctx context.Context) error {
 }
 
 func (s *Service) processSource(ctx context.Context, source *models.ContentSource) error {
-	log.Printf("Fetching %s (%s)...", source.Name, source.URL)
+	logging.Info("fetching content from source", "source_name", source.Name, "source_url", source.URL, "source_type", source.Type)
 
 	var items []ContentMetadata
 	var err error
@@ -88,7 +98,7 @@ func (s *Service) processSource(ctx context.Context, source *models.ContentSourc
 	case "youtube_channel", "blog_rss":
 		// For YouTube, we assume the URL is the RSS feed URL or we convert it
 		// YouTube Channel RSS: https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID
-		// If user provided regular URL, we might need to resolve it. 
+		// If user provided regular URL, we might need to resolve it.
 		// For now, assume user provides the RSS URL or we handle it simply.
 		items, err = FetchFeed(source.URL)
 	default:
@@ -101,14 +111,14 @@ func (s *Service) processSource(ctx context.Context, source *models.ContentSourc
 		return err
 	}
 
-	log.Printf("Found %d items for %s", len(items), source.Name)
+	logging.Info("fetched items from source", "source_name", source.Name, "item_count", len(items))
 
 	// Save items
 	count := 0
 	for _, meta := range items {
 		// Skip if too old? (e.g. older than 30 days)
 		// For now, save all.
-		
+
 		item := &models.ContentItem{
 			SourceID:    source.ID,
 			Title:       meta.Title,
@@ -117,15 +127,16 @@ func (s *Service) processSource(ctx context.Context, source *models.ContentSourc
 			ImageURL:    meta.ImageURL,
 			PublishedAt: meta.PublishedAt,
 		}
-		
+
 		// Temporary fix: I'll need to update metadata.go to include URL/Link.
 		// For now, let's assume I'll fix it in the next step.
-		
+
 		if err := s.db.CreateContentItem(ctx, item); err == nil {
 			count++
 		}
 	}
-	
-	log.Printf("Saved %d new items for %s", count, source.Name)
+
+	metrics.ContentItemsCollected.Add(float64(count))
+	logging.Info("saved new items from source", "source_name", source.Name, "saved_count", count)
 	return nil
 }

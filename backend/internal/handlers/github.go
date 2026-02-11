@@ -161,3 +161,22 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	redirectURL := fmt.Sprintf("%s%s", frontendURL, redirectPath)
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
+
+// DELETE /api/v1/auth/github/disconnect
+func (h *GitHubHandler) Disconnect(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	err := h.db.DeleteGitHubIntegration(r.Context(), userID)
+	if err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]string{
+		"message": "GitHub account disconnected successfully",
+	})
+}

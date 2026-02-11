@@ -1,34 +1,30 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import GoogleSignIn from '@/components/GoogleSignIn.vue'
+import AuthProviders from '@/components/auth/AuthProviders.vue'
+import LoginForm from '@/components/auth/LoginForm.vue'
+import LoginFeatures from '@/components/auth/LoginFeatures.vue'
 
 const router = useRouter()
 const isLoading = ref(false)
 
-// Check if user is already logged in
 const user = localStorage.getItem('user')
 if (user) {
   router.push('/dashboard')
 }
 
-const email = ref('')
-const password = ref('')
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
-const handleLogin = async () => {
+const handleLogin = async (credentials: { email: string; password: string }) => {
   isLoading.value = true
   try {
-    const res = await fetch(`${apiUrl}/api/login`, {
+    const res = await fetch(`${apiUrl}/api/v1/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // Send cookies with request
-      body: JSON.stringify({
-        email: email.value,
-        password: password.value,
-      }),
+      credentials: 'include',
+      body: JSON.stringify(credentials),
     })
 
     if (!res.ok) {
@@ -37,16 +33,13 @@ const handleLogin = async () => {
 
     const data = await res.json()
 
-    // Store user info (token is in HttpOnly cookie)
     localStorage.setItem('user', JSON.stringify({
       email: data.data.email,
       username: data.data.username
     }))
 
-    // Check feature flag (same as Google login)
-    // Note: Ideally we should use the injected unleash client here too
-    router.push('/dashboard') // Default to dashboard for now
-    
+    router.push('/dashboard')
+
   } catch (error) {
     console.error(error)
     alert('Login failed: Invalid credentials')
@@ -102,9 +95,9 @@ const handleLogin = async () => {
           </p>
         </div>
 
-        <!-- Google Sign In -->
+        <!-- Auth Providers -->
         <div class="space-y-4">
-          <GoogleSignIn />
+          <AuthProviders />
 
           <!-- Divider -->
           <div class="relative">
@@ -116,90 +109,12 @@ const handleLogin = async () => {
             </div>
           </div>
 
-          <!-- Email Login Form -->
-          <form @submit.prevent="handleLogin" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-200 mb-1">Email</label>
-              <input
-                v-model="email"
-                type="email"
-                required
-                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="name@example.com"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-200 mb-1">Password</label>
-              <input
-                v-model="password"
-                type="password"
-                required
-                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="••••••••"
-              />
-            </div>
-            <button
-              type="submit"
-              :disabled="isLoading"
-              class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 transition-all duration-200 rounded-lg text-white font-medium shadow-lg hover:shadow-purple-500/30"
-            >
-              <span v-if="isLoading">Signing in...</span>
-              <span v-else>Sign in with Email</span>
-            </button>
-          </form>
+          <!-- Login Form -->
+          <LoginForm :is-loading="isLoading" @submit="handleLogin" />
         </div>
 
         <!-- Features -->
-        <div class="mt-8 space-y-3">
-          <div class="flex items-center gap-3 text-white/80 text-sm">
-            <svg
-              class="w-5 h-5 text-green-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span>Structured learning paths</span>
-          </div>
-          <div class="flex items-center gap-3 text-white/80 text-sm">
-            <svg
-              class="w-5 h-5 text-green-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span>Hands-on projects with real code</span>
-          </div>
-          <div class="flex items-center gap-3 text-white/80 text-sm">
-            <svg
-              class="w-5 h-5 text-green-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span>Progress tracking & achievements</span>
-          </div>
-        </div>
+        <LoginFeatures />
 
         <!-- Footer -->
         <div class="mt-8 text-center text-xs text-white/60">

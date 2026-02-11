@@ -10,6 +10,7 @@ import (
 	"shadow-nova/backend/internal/database"
 	"shadow-nova/backend/internal/flags"
 	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/logging"
 	"shadow-nova/backend/internal/models"
 
 	"golang.org/x/crypto/bcrypt"
@@ -43,12 +44,12 @@ func NewServer(db database.Service, flagsService flags.Service) (*http.Server, *
 	// Initialize Schema
 	ctx := context.Background()
 	if err := NewServer.db.InitSchema(ctx); err != nil {
-		fmt.Printf("Failed to initialize schema: %v\n", err)
+		logging.Error("failed to initialize schema", err)
 	}
 
 	// Seed Learning Paths
 	if err := NewServer.db.SeedLearningPaths(ctx); err != nil {
-		fmt.Printf("Failed to seed learning paths: %v\n", err)
+		logging.Error("failed to seed learning paths", err)
 	}
 
 	// Seed super user (only if ADMIN_DEFAULT_PASSWORD is set)
@@ -61,7 +62,7 @@ func NewServer(db database.Service, flagsService flags.Service) (*http.Server, *
 			if err != nil {
 				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 				if err != nil {
-					fmt.Printf("Failed to hash admin password: %v\n", err)
+					logging.Error("failed to hash admin password", err)
 					return
 				}
 				user := &models.User{
@@ -71,9 +72,9 @@ func NewServer(db database.Service, flagsService flags.Service) (*http.Server, *
 					Role:         "admin",
 				}
 				if err := NewServer.db.CreateUser(ctx, user); err != nil {
-					fmt.Printf("Failed to seed super user: %v\n", err)
+					logging.Error("failed to seed super user", err)
 				} else {
-					fmt.Println("Super user seeded successfully")
+					logging.Info("super user seeded successfully", "email", email)
 				}
 			}
 		}()
@@ -81,7 +82,7 @@ func NewServer(db database.Service, flagsService flags.Service) (*http.Server, *
 
 	// Start database metrics collection
 	NewServer.db.StartMetricsCollection(collectorCtx)
-	fmt.Println("Database metrics collection started")
+	logging.Info("database metrics collection started")
 
 	// Register routes
 	handler, err := NewServer.RegisterRoutes()
@@ -111,24 +112,24 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // Shutdown gracefully shuts down the server, stopping background tasks and closing connections
 func (s *Server) Shutdown(ctx context.Context) error {
-	fmt.Println("Initiating graceful shutdown...")
+	logging.Info("initiating graceful shutdown")
 
 	// Cancel collector goroutine
 	if s.collectorCancel != nil {
-		fmt.Println("Stopping collector goroutine...")
+		logging.Info("stopping collector goroutine")
 		s.collectorCancel()
 	}
 
 	// Close database connections
-	fmt.Println("Closing database connections...")
+	logging.Info("closing database connections")
 	s.db.Close()
 
 	// Close flags service if it has cleanup
 	if s.flags != nil {
-		fmt.Println("Closing flags service...")
+		logging.Info("closing flags service")
 		s.flags.Close()
 	}
 
-	fmt.Println("Graceful shutdown complete")
+	logging.Info("graceful shutdown complete")
 	return nil
 }

@@ -98,3 +98,57 @@ func (s *service) DeleteExpiredBlacklistedTokens(ctx context.Context) (int64, er
 	}
 	return result.RowsAffected(), nil
 }
+
+// GetUserByID retrieves a user by their ID
+func (s *service) GetUserByID(ctx context.Context, userID int) (*models.User, error) {
+	var user models.User
+	query := `SELECT id, email, username, password_hash, user_role, created_at, updated_at
+              FROM users WHERE id = $1`
+	err := s.db.QueryRow(ctx, query, userID).Scan(
+		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
+		&user.Role, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.NotFound(fmt.Sprintf("user with ID %d not found", userID))
+		}
+		return nil, errors.DatabaseError(err, "failed to get user by ID")
+	}
+	return &user, nil
+}
+
+// UpdateUser updates user profile information
+func (s *service) UpdateUser(ctx context.Context, userID int, user *models.User) error {
+	query := `UPDATE users
+              SET username = $1, email = $2, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $3`
+	result, err := s.db.Exec(ctx, query, user.Username, user.Email, userID)
+	if err != nil {
+		return errors.DatabaseError(err, "failed to update user")
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.NotFound(fmt.Sprintf("user with ID %d not found", userID))
+	}
+
+	return nil
+}
+
+// UpdateUserPassword updates a user's password
+func (s *service) UpdateUserPassword(ctx context.Context, userID int, hashedPassword string) error {
+	query := `UPDATE users
+              SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $2`
+	result, err := s.db.Exec(ctx, query, hashedPassword, userID)
+	if err != nil {
+		return errors.DatabaseError(err, "failed to update user password")
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.NotFound(fmt.Sprintf("user with ID %d not found", userID))
+	}
+
+	return nil
+}

@@ -170,3 +170,18 @@ CREATE INDEX IF NOT EXISTS idx_content_items_source_id ON content_items(source_i
 CREATE INDEX IF NOT EXISTS idx_project_submissions_project_id ON project_submissions(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_submissions_status ON project_submissions(status, submitted_at DESC);
 CREATE INDEX IF NOT EXISTS idx_github_integrations_github_user_id ON github_integrations(github_user_id);
+
+-- Idempotency keys for preventing duplicate operations
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+    key VARCHAR(100) PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    request_path VARCHAR(200) NOT NULL,
+    request_method VARCHAR(10) NOT NULL,
+    response_status INTEGER,
+    response_body TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_keys_user ON idempotency_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires ON idempotency_keys(expires_at);

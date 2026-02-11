@@ -37,14 +37,14 @@ curl http://localhost:8080/metrics | grep db_connections
 
 ```bash
 # Try accessing admin endpoint without token (should fail)
-curl -X POST http://localhost:8080/api/admin/settings/collector \
+curl -X POST http://localhost:8080/api/v1/admin/settings/collector \
   -H "Content-Type: application/json" \
   -d '{"runs_per_day": 2}'
 
 # Expected: 401 Unauthorized
 
 # Get a regular user token (via login) and try again
-curl -X POST http://localhost:8080/api/admin/settings/collector \
+curl -X POST http://localhost:8080/api/v1/admin/settings/collector \
   -H "Authorization: Bearer <user-token>" \
   -H "Content-Type: application/json" \
   -d '{"runs_per_day": 2}'
@@ -73,7 +73,7 @@ curl -X POST http://localhost:8080/api/admin/settings/collector \
 
 2. Make API call:
    ```bash
-   curl http://localhost:8080/api/paths
+   curl http://localhost:8080/api/v1/paths
    ```
 
 3. Check logs:
@@ -159,7 +159,7 @@ docker exec nova-postgres psql -U user -d shadownova -c "EXPLAIN ANALYZE SELECT 
 **API Test**:
 ```bash
 # Login returns cookie (not JSON token)
-curl -v -X POST http://localhost:8080/api/login \
+curl -v -X POST http://localhost:8080/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password123"}' \
   | grep "Set-Cookie"
@@ -181,12 +181,12 @@ curl -v -X POST http://localhost:8080/api/login \
 ```bash
 # As User A (with User A's token)
 curl -H "Authorization: Bearer <userA-token>" \
-  http://localhost:8080/api/submissions/1
+  http://localhost:8080/api/v1/submissions/1
 # Expected: 200 OK with submission data
 
 # As User B (with User B's token)
 curl -H "Authorization: Bearer <userB-token>" \
-  http://localhost:8080/api/submissions/1
+  http://localhost:8080/api/v1/submissions/1
 # Expected: 403 Forbidden
 ```
 
@@ -220,17 +220,17 @@ curl -H "Authorization: Bearer <userB-token>" \
 **API Test**:
 ```bash
 # POST without CSRF token (should fail)
-curl -X POST http://localhost:8080/api/progress \
+curl -X POST http://localhost:8080/api/v1/progress \
   -H "Content-Type: application/json" \
   -d '{"lesson_id": 1, "completed": true}'
 
 # Expected: 403 {"error": "CSRF token validation failed", "status": 403}
 
 # Get CSRF token
-CSRF_TOKEN=$(curl -s http://localhost:8080/api/csrf-token | grep -o '"csrf_token":"[^"]*"' | cut -d'"' -f4)
+CSRF_TOKEN=$(curl -s http://localhost:8080/api/v1/csrf-token | grep -o '"csrf_token":"[^"]*"' | cut -d'"' -f4)
 
 # POST with CSRF token (should work)
-curl -X POST http://localhost:8080/api/progress \
+curl -X POST http://localhost:8080/api/v1/progress \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: $CSRF_TOKEN" \
   -d '{"lesson_id": 1, "completed": true}'
@@ -261,7 +261,7 @@ curl -X POST http://localhost:8080/api/progress \
 
 ```bash
 # 1. Login
-TOKEN=$(curl -s -X POST http://localhost:8080/api/login \
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password"}' \
   -c cookies.txt \
@@ -270,16 +270,16 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/login \
 # 2. Use token (works)
 curl -H "Authorization: Bearer $TOKEN" \
   -b cookies.txt \
-  http://localhost:8080/api/paths
+  http://localhost:8080/api/v1/paths
 
 # 3. Logout
-curl -X POST http://localhost:8080/api/auth/logout \
+curl -X POST http://localhost:8080/api/v1/auth/logout \
   -H "Authorization: Bearer $TOKEN" \
   -b cookies.txt
 
 # 4. Try using token again (should fail)
 curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/paths
+  http://localhost:8080/api/v1/paths
 # Expected: 401 "Token has been revoked"
 ```
 
@@ -393,11 +393,11 @@ docker exec nova-postgres psql -U user -d shadownova -c "SELECT COUNT(*) FROM pr
 **Test Graceful Failures**:
 ```bash
 # Test invalid path ID
-curl http://localhost:8080/api/paths/invalid-id
+curl http://localhost:8080/api/v1/paths/invalid-id
 # Expected: 404 {"error":"learning path not found: ..."}
 
 # Test missing required field
-curl -X POST http://localhost:8080/api/register \
+curl -X POST http://localhost:8080/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com"}'
 # Expected: 400 with validation error
@@ -410,8 +410,8 @@ tail -100 /private/tmp/claude-502/-Users-CT303853-Projects-Other-Projects-shadow
 **Structured Logging Check**:
 ```bash
 # Make some API calls
-curl http://localhost:8080/api/paths
-curl http://localhost:8080/api/projects
+curl http://localhost:8080/api/v1/paths
+curl http://localhost:8080/api/v1/projects
 
 # Check logs are structured (JSON format)
 tail -100 /private/tmp/claude-502/-Users-CT303853-Projects-Other-Projects-shadow-nova/tasks/bd41007.output
@@ -496,7 +496,7 @@ hey -n 100 -c 10 http://localhost:8080/health
 curl -s http://localhost:8080/metrics | grep -E "(db_connections_active|db_connections_idle)"
 
 # Heavy load test
-hey -n 5000 -c 50 http://localhost:8080/api/paths
+hey -n 5000 -c 50 http://localhost:8080/api/v1/paths
 
 # Verify connection pool stats
 curl -s http://localhost:8080/health
@@ -508,7 +508,7 @@ curl -s http://localhost:8080/health
 
 ```bash
 # Time the N+1 fixed query
-time curl -s http://localhost:8080/api/paths/1
+time curl -s http://localhost:8080/api/v1/paths/1
 
 # Should be fast (<100ms with local DB)
 # Before fix: Would be slower with 10+ modules
@@ -535,7 +535,7 @@ localStorage.getItem('token')
 **Browser Console Test**:
 ```javascript
 // Try to submit without CSRF token
-fetch('http://localhost:8080/api/progress', {
+fetch('http://localhost:8080/api/v1/progress', {
   method: 'POST',
   headers: {'Content-Type': 'application/json'},
   body: JSON.stringify({lesson_id: 1, completed: true})
@@ -601,14 +601,14 @@ curl http://localhost:8080/health | jq
 ### Test 404 Not Found
 
 ```bash
-curl http://localhost:8080/api/paths/nonexistent-id
+curl http://localhost:8080/api/v1/paths/nonexistent-id
 # Expected: {"error":"learning path not found: ...","status":404}
 ```
 
 ### Test 401 Unauthorized
 
 ```bash
-curl http://localhost:8080/api/paths
+curl http://localhost:8080/api/v1/paths
 # Expected: {"error":"Authorization required","status":401}
 ```
 
@@ -617,14 +617,14 @@ curl http://localhost:8080/api/paths
 ```bash
 # Try accessing another user's submission
 curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/submissions/999
+  http://localhost:8080/api/v1/submissions/999
 # Expected: {"error":"Forbidden","status":403}
 ```
 
 ### Test 400 Bad Request
 
 ```bash
-curl -X POST http://localhost:8080/api/register \
+curl -X POST http://localhost:8080/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{"email":"invalid-email"}'
 # Expected: 400 with validation error
@@ -659,7 +659,7 @@ echo "✅ Metrics working"
 
 # Test auth required
 echo "Testing authentication..."
-RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/paths)
+RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/v1/paths)
 if [ "$RESPONSE" = "401" ]; then
     echo "✅ Authentication required"
 else
@@ -669,7 +669,7 @@ fi
 
 # Test CSRF endpoint
 echo "Testing CSRF..."
-curl -f http://localhost:8080/api/csrf-token > /dev/null
+curl -f http://localhost:8080/api/v1/csrf-token > /dev/null
 echo "✅ CSRF token endpoint working"
 
 echo ""

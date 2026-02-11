@@ -32,29 +32,29 @@ var (
 func PrometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Wrap response writer to capture status code
-		ww := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		
+		ww := &prometheusResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
 		next.ServeHTTP(ww, r)
-		
+
 		duration := time.Since(start).Seconds()
 		path := chi.RouteContext(r.Context()).RoutePattern()
 		if path == "" {
 			path = r.URL.Path
 		}
-		
+
 		httpRequestsTotal.WithLabelValues(r.Method, path, strconv.Itoa(ww.statusCode)).Inc()
 		httpRequestDuration.WithLabelValues(r.Method, path).Observe(duration)
 	})
 }
 
-type responseWriter struct {
+type prometheusResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
 
-func (rw *responseWriter) WriteHeader(code int) {
+func (rw *prometheusResponseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
 }

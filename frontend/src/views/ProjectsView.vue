@@ -12,10 +12,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { ArrowRight } from 'lucide-vue-next'
-import { useProjects } from '@/composables/useProjects';
+import { useProjectsStore } from '@/stores/projects'
 import { useToast } from '@/composables/useToast';
 
-const { projects, isLoading, error, fetchProjects } = useProjects();
+const projectsStore = useProjectsStore()
 const toast = useToast();
 
 const getDifficultyColor = (difficulty: string) => {
@@ -32,7 +32,7 @@ const getDifficultyColor = (difficulty: string) => {
 }
 
 onMounted(async () => {
-  const result = await fetchProjects();
+  const result = await projectsStore.fetchProjects();
   if (result.error) {
     toast.showError(result.error);
   }
@@ -50,26 +50,26 @@ onMounted(async () => {
       </div>
 
       <!-- Loading State -->
-      <div v-if="isLoading" class="flex items-center justify-center py-20">
+      <div v-if="projectsStore.loading" class="flex items-center justify-center py-20">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="text-center py-20">
+      <div v-else-if="projectsStore.error" class="text-center py-20">
         <div class="mb-4">
           <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <p class="text-red-500 font-medium mb-2">Failed to load projects</p>
-          <p class="text-sm text-gray-500 mb-4">{{ error.message || 'Unable to connect to the server' }}</p>
+          <p class="text-sm text-gray-500 mb-4">{{ projectsStore.error || 'Unable to connect to the server' }}</p>
         </div>
-        <Button @click="fetchProjects">Try Again</Button>
+        <Button @click="projectsStore.fetchProjects">Try Again</Button>
       </div>
 
       <!-- Projects Grid -->
-      <div v-else-if="projects.length > 0" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div v-else-if="projectsStore.projects.length > 0" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         <Card
-          v-for="project in projects"
+          v-for="project in projectsStore.projects"
           :key="project.id"
           class="flex flex-col hover:shadow-md transition-shadow"
         >

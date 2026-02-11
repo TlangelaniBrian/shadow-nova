@@ -14,15 +14,15 @@ The ownership middleware prevents unauthorized access to resources by validating
 **Future**: Will check enrollment/purchase status
 
 **Protected Endpoints**:
-- `GET /api/paths/{id}/progress` - Get progress for a specific path
+- `GET /api/v1/paths/{id}/progress` - Get progress for a specific path
 
 ### 2. ValidateSubmissionOwnership
 **Purpose**: Validates ownership of project submissions
 **Behavior**: Users can only access their own submissions
 
 **Protected Endpoints**:
-- `GET /api/submissions/{id}` - Get a specific submission
-- `PATCH /api/submissions/{id}` - Update a specific submission
+- `GET /api/v1/submissions/{id}` - Get a specific submission
+- `PATCH /api/v1/submissions/{id}` - Update a specific submission
 
 ### 3. ValidateProgressOwnership
 **Purpose**: Validates ownership of progress records
@@ -36,7 +36,7 @@ The ownership middleware prevents unauthorized access to resources by validating
 ### Test 1: Owner Can Access Their Submission
 ```bash
 # Login as user1
-curl -X POST http://localhost:8080/api/login \
+curl -X POST http://localhost:8080/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user1@example.com","password":"password"}'
 
@@ -44,7 +44,7 @@ curl -X POST http://localhost:8080/api/login \
 TOKEN="<your_token>"
 
 # Submit a project
-curl -X POST http://localhost:8080/api/submissions \
+curl -X POST http://localhost:8080/api/v1/submissions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -57,21 +57,21 @@ curl -X POST http://localhost:8080/api/submissions \
 # Note the submission ID from response, e.g., id=1
 
 # Access your own submission (should succeed - 200 OK)
-curl http://localhost:8080/api/submissions/1 \
+curl http://localhost:8080/api/v1/submissions/1 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Test 2: Non-Owner Gets 403 Forbidden
 ```bash
 # Login as user2
-curl -X POST http://localhost:8080/api/login \
+curl -X POST http://localhost:8080/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user2@example.com","password":"password"}'
 
 TOKEN2="<user2_token>"
 
 # Try to access user1's submission (should fail - 403 Forbidden)
-curl http://localhost:8080/api/submissions/1 \
+curl http://localhost:8080/api/v1/submissions/1 \
   -H "Authorization: Bearer $TOKEN2"
 
 # Expected response:
@@ -81,7 +81,7 @@ curl http://localhost:8080/api/submissions/1 \
 ### Test 3: Missing Authentication
 ```bash
 # Try to access submission without token (should fail - 401 Unauthorized)
-curl http://localhost:8080/api/submissions/1
+curl http://localhost:8080/api/v1/submissions/1
 
 # Expected response:
 # {"error":"User not authenticated","status":401}
@@ -90,11 +90,11 @@ curl http://localhost:8080/api/submissions/1
 ### Test 4: Invalid Submission ID
 ```bash
 # Try with invalid ID format (should fail - 400 Bad Request)
-curl http://localhost:8080/api/submissions/invalid \
+curl http://localhost:8080/api/v1/submissions/invalid \
   -H "Authorization: Bearer $TOKEN"
 
 # Try with non-existent ID (should fail - 404 Not Found or 500)
-curl http://localhost:8080/api/submissions/99999 \
+curl http://localhost:8080/api/v1/submissions/99999 \
   -H "Authorization: Bearer $TOKEN"
 ```
 

@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,7 +22,8 @@ import (
 func main() {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found, using environment variables")
+		// Can't use structured logging yet, so use slog directly
+		slog.Warn("env file not found, using environment variables")
 	}
 
 	// Initialize structured logging
@@ -31,27 +31,30 @@ func main() {
 
 	// Initialize encryption
 	if err := crypto.Init(); err != nil {
-		log.Fatalf("Failed to initialize encryption: %v", err)
+		logging.Error("failed to initialize encryption", err)
+		os.Exit(1)
 	}
 
 	// Initialize database (single instance)
 	db, err := database.New()
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		logging.Error("failed to initialize database", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Initialize flags service
 	flagsService, err := flags.New()
 	if err != nil {
-		log.Printf("Warning: Failed to initialize feature flags: %v", err)
+		logging.Warn("failed to initialize feature flags", "error", err)
 		// Continue without feature flags - the system should handle nil gracefully
 	}
 
 	// Pass dependencies to server
 	httpServer, appServer, err := server.NewServer(db, flagsService)
 	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
+		logging.Error("failed to create server", err)
+		os.Exit(1)
 	}
 
 	// Create a channel to listen for interrupt signals
@@ -61,7 +64,7 @@ func main() {
 	// Start server in a goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
-		fmt.Printf("Server running on %s\n", httpServer.Addr)
+		logging.Info("server starting", "address", httpServer.Addr)
 		serverErrors <- httpServer.ListenAndServe()
 	}()
 
@@ -69,10 +72,11 @@ func main() {
 	select {
 	case err := <-serverErrors:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Server error: %v", err)
+			logging.Error("server error", err)
+			os.Exit(1)
 		}
 	case sig := <-shutdown:
-		log.Printf("Received signal: %v. Starting graceful shutdown...", sig)
+		logging.Info("received shutdown signal", "signal", sig)
 
 		// Create context with timeout for shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -80,18 +84,18 @@ func main() {
 
 		// Shutdown the HTTP server first
 		if err := httpServer.Shutdown(ctx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
+			logging.Error("http server shutdown error", err)
 			// Force close after timeout
 			if err := httpServer.Close(); err != nil {
-				log.Printf("HTTP server force close error: %v", err)
+				logging.Error("http server force close error", err)
 			}
 		}
 
 		// Shutdown background tasks and database
 		if err := appServer.Shutdown(ctx); err != nil {
-			log.Printf("Application shutdown error: %v", err)
+			logging.Error("application shutdown error", err)
 		}
 
-		log.Println("Server stopped")
+		logging.Info("server stopped")
 	}
 }

@@ -5,6 +5,8 @@ import App from './App.vue'
 import router from './router'
 import unleashPlugin from './plugins/unleash'
 import apiClient from './api/client'
+// Uncomment after installing: npm install pinia-plugin-persistedstate
+// import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
 // Clean up old token storage (tokens are now in HttpOnly cookies)
 if (typeof window !== 'undefined') {
@@ -27,7 +29,10 @@ async function initApp() {
   }
 
   // Mount app
-  app.use(createPinia())
+  const pinia = createPinia()
+  // Uncomment after installing pinia-plugin-persistedstate
+  // pinia.use(piniaPluginPersistedstate)
+  app.use(pinia)
   app.use(router)
   app.use(unleashPlugin)
   app.mount('#app')

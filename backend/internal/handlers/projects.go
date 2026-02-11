@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"shadow-nova/backend/internal/database"
 	"shadow-nova/backend/internal/httputil"
+	"shadow-nova/backend/internal/metrics"
 	"shadow-nova/backend/internal/middleware"
 	"shadow-nova/backend/internal/models"
 	"shadow-nova/backend/internal/validator"
@@ -21,13 +22,23 @@ func NewProjectsHandler(db database.Service) *ProjectsHandler {
 }
 
 func (h *ProjectsHandler) List(w http.ResponseWriter, r *http.Request) {
-	projects, err := h.db.GetProjects(r.Context())
+	pagination := models.ParsePagination(r)
+	offset := (pagination.Page - 1) * pagination.Limit
+
+	projects, err := h.db.GetProjects(r.Context(), pagination.Limit, offset)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch projects")
 		return
 	}
 
-	httputil.WriteSuccess(w, "Projects retrieved successfully", projects)
+	total, err := h.db.GetProjectsCount(r.Context())
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to count projects")
+		return
+	}
+
+	response := models.NewPaginatedResponse(projects, pagination.Page, pagination.Limit, total)
+	httputil.WriteJSON(w, http.StatusOK, response)
 }
 
 func (h *ProjectsHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -78,6 +89,8 @@ func (h *ProjectsHandler) Submit(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to submit project")
 		return
 	}
+
+	metrics.ProjectSubmissions.Inc()
 
 	httputil.WriteCreated(w, "Project submitted successfully", submission)
 }
@@ -140,5 +153,49 @@ func (h *ProjectsHandler) UpdateSubmission(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Track status changes
+	if req.Status != "" {
+		metrics.ProjectStatusUpdates.WithLabelValues(status).Inc()
+	}
+
 	httputil.WriteSuccess(w, "Submission updated successfully", nil)
+}
+
+func (h *ProjectsHandler) Get(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	project, err := h.db.GetProject(r.Context(), id)
+	if err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	httputil.WriteSuccess(w, "Project retrieved successfully", project)
+}
+
+func (h *ProjectsHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var req models.Project
+	if err := validator.ValidateRequest(r, &req); err != nil {
+		validator.WriteValidationError(w, err)
+		return
+	}
+
+	if err := h.db.UpdateProject(r.Context(), id, &req); err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	httputil.WriteSuccess(w, "Project updated successfully", nil)
+}
+
+func (h *ProjectsHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if err := h.db.DeleteProject(r.Context(), id); err != nil {
+		httputil.HandleError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
